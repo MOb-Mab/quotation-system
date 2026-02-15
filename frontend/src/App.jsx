@@ -8,6 +8,7 @@ import ProductList from './pages/ProductList';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 
+
 function App() {
   return (
     <Router>
@@ -33,6 +34,8 @@ function App() {
 
           {/* PREVIEW */}
           <Route path="/quotations/:id/preview" element={<QuotationPreview />} />
+         
+          
 
           <Route path="/products" element={<ProductList />} />
         </Route>

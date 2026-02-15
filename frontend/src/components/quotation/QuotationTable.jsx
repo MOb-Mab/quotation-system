@@ -5,6 +5,7 @@ export default function QuotationTable({
   onView,
   onEdit,
   onDelete,
+  onChangeStatus, 
 }) {
   return (
     <div className="bg-white rounded-xl shadow overflow-x-auto">
@@ -13,7 +14,8 @@ export default function QuotationTable({
           <tr>
             <th className="px-4 py-3 text-left">เลขที่</th>
             <th className="px-4 py-3 text-left">ลูกค้า</th>
-            <th className="px-4 py-3 text-left">วันที่</th>
+            <th className="px-4 py-3 text-left">สร้างเมื่อ</th>
+            <th className="px-4 py-3 text-left">แก้ไขล่าสุด</th>
             <th className="px-4 py-3 text-right">ยอดรวม</th>
             <th className="px-4 py-3 text-center">สถานะ</th>
             <th className="px-4 py-3 text-center">จัดการ</th>
@@ -45,8 +47,13 @@ export default function QuotationTable({
                 </td>
 
                 <td className="px-4 py-3">
-                  {new Date(q.issue_date).toLocaleDateString('th-TH')}
-                </td>
+  {new Date(q.created_date).toLocaleDateString('th-TH')}
+</td>
+
+<td className="px-4 py-3">
+  {new Date(q.updated_date).toLocaleDateString('th-TH')}
+</td>
+
 
                 <td className="px-4 py-3 text-right">
                   {q.grand_total?.toLocaleString('th-TH', {
@@ -55,10 +62,32 @@ export default function QuotationTable({
                 </td>
 
                 <td className="px-4 py-3 text-center">
-                  <span className="px-2 py-1 rounded bg-gray-100 text-gray-700">
-                    {q.status}
-                  </span>
-                </td>
+                <select
+  value={q.status}
+  onChange={(e) => onChangeStatus(q._id, e.target.value)}
+  className={`
+    px-4 py-2 rounded-full text-sm font-semibold
+    border border-gray-200
+    shadow-sm
+    cursor-pointer
+    transition-all duration-200
+    focus:outline-none focus:ring-2 focus:ring-offset-1
+    hover:shadow-md
+    ${q.status === 'draft' && 'bg-gray-100 text-gray-700 focus:ring-gray-400'}
+    ${q.status === 'sent' && 'bg-blue-100 text-blue-700 focus:ring-blue-400'}
+    ${q.status === 'accepted' && 'bg-green-100 text-green-700 focus:ring-green-400'}
+    ${q.status === 'rejected' && 'bg-red-100 text-red-700 focus:ring-red-400'}
+    ${q.status === 'expired' && 'bg-orange-100 text-orange-700 focus:ring-orange-400'}
+  `}
+>
+  <option value="draft">Draft</option>
+  <option value="sent">Sent</option>
+  <option value="accepted">Accepted</option>
+  <option value="rejected">Rejected</option>
+  <option value="expired">Expired</option>
+</select>
+
+</td>
 
                 <td className="px-4 py-3">
                   <div className="flex justify-center gap-3">

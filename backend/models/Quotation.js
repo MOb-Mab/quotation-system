@@ -29,19 +29,26 @@ const QuotationSchema = new mongoose.Schema(
     },
     recipient: { type: String }, // เพิ่ม
     customer_address: { type: String }, // เพิ่ม
-    customer_phone: { type: String }, // เพิ่ม
     prepared_by: { type: String }, // เพิ่ม
     prepared_phone: { type: String }, // เพิ่ม
+    coordinator_name: { type: String },
+    coordinator_phone: { type: String },
     issue_date: {
-      type: Date,
-      default: Date.now,
-    },
-    validity_days: { type: Number, default: 30 }, // เพิ่ม
-    expiry_date: { type: Date }, // เพิ่ม
-    items: {
-      type: [QuotationItemSchema],
-      required: true,
-    },
+        type: Date,
+        default: null,  // เปลี่ยนจาก Date.now
+      },
+      validity_days: {
+        type: Number,
+        default: null,  // เปลี่ยนจาก 30
+      },
+      expiry_date: {
+        type: Date,
+        default: null,
+      },
+      items: {
+        type: [QuotationItemSchema],
+        default: [],
+      },
     sub_total: {
       type: Number,
       required: true,
@@ -49,6 +56,10 @@ const QuotationSchema = new mongoose.Schema(
     discount: {
       type: Number,
       default: 0,
+    },
+    vat_percent: { 
+        type: Number, 
+        default: 7 ,
     },
     vat: {
       type: Number,

@@ -1,4 +1,3 @@
-//frontend/src/pages/QuotationCreate.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FiArrowLeft, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -23,21 +22,25 @@ export default function QuotationCreate() {
   const [successMessage, setSuccessMessage] = useState('');
   const hasLoadedRef = useRef(false);
   const hasAppliedSelectedProducts = useRef(false);
+  const VAT_PERCENT = 7;
+
+  // State สำหรับเปิด-ปิด date fields
 
   const [formData, setFormData] = useState({
     quotation_number: '',
-    issue_date: new Date().toISOString().split('T')[0],
-    validity_days: 30,
+    issue_date: '',
+    validity_days: '',
     expiry_date: '',
     customer_name: '',
     recipient: '',
     customer_address: '',
-    customer_phone: '',
+    coordinator_name: '',
+    coordinator_phone: '',
     prepared_by: '',
     prepared_phone: '',
     items: [],
     discount_percent: 0,
-    vat_percent: 7,
+    vat_percent: VAT_PERCENT,
     note: `รับประกันอุปกรณ์เป็นระยะเวลา 1 ปี
 ลูกค้าชำระได้ทั้งเงินสดและเช็ค
 ใบเสนอราคานี้มีกำหนด 30 วัน นับจากวันเสนอราคา
@@ -45,9 +48,9 @@ export default function QuotationCreate() {
     status: 'draft'
   });
 
-  // ✅ FIX: เช็ค sessionStorage ก่อนทุกอย่าง - ถ้ามีก็ใช้เลย ไม่ต้องโหลด API
+ 
+
   useEffect(() => {
-    // ⛔ กันโหลดซ้ำ (React 18 StrictMode)
     if (hasLoadedRef.current) return;
   
     const savedForm = sessionStorage.getItem('quotationFormData');
@@ -55,15 +58,12 @@ export default function QuotationCreate() {
     if (savedForm) {
       try {
         const parsedData = JSON.parse(savedForm);
-        console.log(
-          '📋 Restored from sessionStorage:',
-          parsedData.items.length,
-          'items'
-        );
+        console.log('📋 Restored from sessionStorage:', parsedData.items.length, 'items');
         setFormData(parsedData);
+        // ตรวจสอบว่ามี date fields หรือไม่เพื่อ set toggle
+        
         sessionStorage.removeItem('quotationFormData');
-  
-        hasLoadedRef.current = true; // ✅ สำคัญมาก
+        hasLoadedRef.current = true;
         return;
       } catch (err) {
         console.error('Restore error:', err);
@@ -77,12 +77,9 @@ export default function QuotationCreate() {
       generateQuotationNumber();
     }
   
-    hasLoadedRef.current = true; // ✅ กันรอบถัดไป
+    hasLoadedRef.current = true;
   }, [id]);
-  
 
-  // ✅ รับสินค้าใหม่จาก sessionStorage
-  // ✅ รับสินค้าใหม่จาก sessionStorage
   useEffect(() => {
     const stored = sessionStorage.getItem('selectedProducts');
   
@@ -91,7 +88,6 @@ export default function QuotationCreate() {
   
     try {
       const newProducts = JSON.parse(stored);
-  
       console.log('📦 Adding', newProducts.length, 'new products');
   
       if (Array.isArray(newProducts) && newProducts.length > 0) {
@@ -101,27 +97,29 @@ export default function QuotationCreate() {
         }));
       }
   
-      // ✅ สำคัญมาก
       hasAppliedSelectedProducts.current = true;
       sessionStorage.removeItem('selectedProducts');
     } catch (err) {
       console.error('Error parsing selectedProducts:', err);
     }
   }, []);
-  
-  
 
+  // Auto-calculate expiry date เมื่อเปิด date fields
   useEffect(() => {
     if (formData.issue_date && formData.validity_days) {
       const issueDate = new Date(formData.issue_date);
       const expiryDate = new Date(issueDate);
-      expiryDate.setDate(expiryDate.getDate() + parseInt(formData.validity_days));
+      expiryDate.setDate(
+        expiryDate.getDate() + parseInt(formData.validity_days || 0)
+      );
+  
       setFormData(prev => ({
         ...prev,
         expiry_date: expiryDate.toISOString().split('T')[0]
       }));
     }
   }, [formData.issue_date, formData.validity_days]);
+  
 
   const loadQuotation = async () => {
     try {
@@ -138,17 +136,20 @@ export default function QuotationCreate() {
         total: parseFloat(item.total) || 0
       }));
 
+      
+
       setFormData({
         quotation_number: data.quotation_number,
-        issue_date: new Date(data.issue_date).toISOString().split('T')[0],
-        validity_days: data.validity_days || 30,
-        expiry_date: data.expiry_date ? new Date(data.expiry_date).toISOString().split('T')[0] : '',
+        issue_date: data.issue_date ? new Date(data.issue_date).toISOString().split('T')[0] : '',  // ✅
+  validity_days: data.validity_days || '',  // ✅
+  expiry_date: data.expiry_date ? new Date(data.expiry_date).toISOString().split('T')[0] : '',  // ✅
         customer_name: data.customer_name,
         recipient: data.recipient || '',
         customer_address: data.customer_address || '',
-        customer_phone: data.customer_phone || '',
         prepared_by: data.prepared_by || '',
         prepared_phone: data.prepared_phone || '',
+        coordinator_name: data.coordinator_name || '',
+        coordinator_phone: data.coordinator_phone || '',
         items: mappedItems,
         discount_percent: parseFloat(data.discount_percent) || 0,
         vat_percent: parseFloat(data.vat_percent) || 7,
@@ -178,13 +179,9 @@ export default function QuotationCreate() {
   };
 
   const handleGoToProductSelection = () => {
-    sessionStorage.setItem(
-      'quotationFormData',
-      JSON.stringify(formData)
-    );
+    sessionStorage.setItem('quotationFormData', JSON.stringify(formData));
     navigate('/products?selectMode=true');
   };
-  
 
   const removeItem = useCallback((index) => {
     setFormData(prev => ({
@@ -217,7 +214,7 @@ export default function QuotationCreate() {
     const subTotal = formData.items.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
     const discountAmount = subTotal * (parseFloat(formData.discount_percent) || 0) / 100;
     const afterDiscount = subTotal - discountAmount;
-    const vatAmount = afterDiscount * (parseFloat(formData.vat_percent) || 0) / 100;
+    const vatAmount = afterDiscount * VAT_PERCENT / 100;
     const grandTotal = afterDiscount + vatAmount;
 
     return {
@@ -248,17 +245,19 @@ export default function QuotationCreate() {
         customer_name: formData.customer_name,
         recipient: formData.recipient,
         customer_address: formData.customer_address,
-        customer_phone: formData.customer_phone,
         prepared_by: formData.prepared_by,
         prepared_phone: formData.prepared_phone,
-        issue_date: formData.issue_date,
-        validity_days: formData.validity_days,
-        expiry_date: formData.expiry_date,
+        coordinator_name: formData.coordinator_name,
+        coordinator_phone: formData.coordinator_phone,
+        issue_date: formData.issue_date || null,
+validity_days: formData.validity_days || null,
+expiry_date: formData.expiry_date || null,
+
         items: formData.items,
         sub_total: totals.sub_total,
         discount_percent: formData.discount_percent,
         discount: totals.discount,
-        vat_percent: formData.vat_percent,
+        vat_percent: formData.vat_percent,       
         vat: totals.vat,
         grand_total: totals.grand_total,
         note: formData.note,
@@ -347,41 +346,57 @@ export default function QuotationCreate() {
 
       <form onSubmit={handleSubmit}>
         <section className="bg-white rounded-xl shadow p-6 mb-6">
-          <h2 className="font-semibold mb-4">ข้อมูลใบเสนอราคา</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-semibold">ข้อมูลใบเสนอราคา</h2>
+            
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Field label="เลขที่ใบเสนอราคา" required>
               <input className="input bg-gray-50" value={formData.quotation_number} readOnly />
             </Field>
-            <Field label="วันที่ออก" required>
-              <input
-                className="input"
-                type="date"
-                value={formData.issue_date}
-                onChange={handleInputChange('issue_date')}
-                required
-              />
-            </Field>
-            <Field label="ยืนราคา (วัน)">
-              <input
-                className="input"
-                type="number"
-                min="0"
-                value={formData.validity_days}
-                onChange={handleInputChange('validity_days')}
-                onKeyDown={preventNonNumeric}
-              />
-            </Field>
-            <Field label="วันหมดอายุ">
-              <input className="input bg-gray-50" type="date" value={formData.expiry_date} readOnly />
-            </Field>
+            <Field label="วันที่ออกใบเสนอราคา">
+  <input
+    className="input"
+    type="date"
+    value={formData.issue_date || ''}  // ✅ เพิ่ม || ''
+    onChange={handleInputChange('issue_date')}
+   
+  />
+</Field>
+
+<Field label="ยืนราคาภายใน (วัน)">
+  <input
+    className="input"
+    type="number"
+    min="0"
+    value={formData.validity_days || ''}  // ✅ เพิ่ม || ''
+    onChange={handleInputChange('validity_days')}
+    onKeyDown={preventNonNumeric}
+    
+  />
+</Field>
+
+<Field label="Expire Date">
+  <input 
+    className="input bg-gray-50" 
+    type="date" 
+    value={formData.expiry_date || ''}  // ✅ เพิ่ม || ''
+    readOnly
+  />
+</Field>
           </div>
         </section>
 
         <section className="bg-white rounded-xl shadow p-6 mb-6">
           <h2 className="font-semibold mb-4">ข้อมูลลูกค้า</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="เรียน (ผู้รับ)">
-              <input className="input" value={formData.recipient} onChange={handleInputChange('recipient')} />
+            <Field label="เรียน" required>
+              <input 
+              className="input" 
+              value={formData.recipient} 
+              onChange={handleInputChange('recipient')}
+              required />
             </Field>
             <Field label="ชื่อลูกค้า" required>
               <input
@@ -392,20 +407,34 @@ export default function QuotationCreate() {
               />
             </Field>
           </div>
-          <Field label="ที่อยู่ลูกค้า" className="mt-4">
+          <Field label="ที่อยู่ลูกค้า" className="mt-4"required>
             <textarea
               className="input"
               rows={3}
               value={formData.customer_address}
               onChange={handleInputChange('customer_address')}
+              required
             />
           </Field>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          
+          
+        </section>
+
+        <section className="bg-white rounded-xl shadow p-6 mb-6">
+          <h2 className="font-semibold mb-4">ผู้ประสานงาน</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="ชื่อผู้ประสานงาน">
+              <input
+                className="input"
+                value={formData.coordinator_name}
+                onChange={handleInputChange('coordinator_name')}
+              />
+            </Field>
             <Field label="เบอร์โทรศัพท์">
               <input
                 className="input"
-                value={formData.customer_phone}
-                onChange={handleInputChange('customer_phone')}
+                value={formData.coordinator_phone}
+                onChange={handleInputChange('coordinator_phone')}
               />
             </Field>
           </div>
@@ -533,57 +562,55 @@ export default function QuotationCreate() {
           </div>
 
           <div className="flex justify-end mt-6">
-            <div className="w-full md:w-1/3 space-y-2">
-              <div className="flex justify-between text-right">
-                <span>รวมเงิน</span>
-                <span className="font-semibold">
-                  {totals.sub_total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>ส่วนลด</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    className="input w-20 text-right"
-                    value={formData.discount_percent}
-                    onChange={handleNumberChange('discount_percent')}
-                    min="0"
-                    max="100"
-                    onKeyDown={preventNonNumeric}
-                  />
-                  <span>%</span>
-                </div>
-              </div>
-              <div className="flex justify-between text-right">
-                <span>ราคาหลังหักส่วนลด</span>
-                <span className="font-semibold">
-                  {totals.after_discount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>ภาษีมูลค่าเพิ่ม</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    className="input w-20 text-right"
-                    value={formData.vat_percent}
-                    onChange={handleNumberChange('vat_percent')}
-                    min="0"
-                    max="100"
-                    onKeyDown={preventNonNumeric}
-                  />
-                  <span>%</span>
-                </div>
-              </div>
-              <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                <span>รวมเป็นเงินทั้งสิ้น</span>
-                <span className="text-yellow-600">
-                  {totals.grand_total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-          </div>
+  <div className="w-full md:w-1/3 space-y-2">
+
+    <div className="flex justify-between text-right">
+      <span>รวมเงิน</span>
+      <span className="font-semibold">
+        {totals.sub_total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+      </span>
+    </div>
+
+    <div className="flex justify-between items-center">
+      <span>ส่วนลด</span>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          className="input w-20 text-right"
+          value={formData.discount_percent}
+          onChange={handleNumberChange('discount_percent')}
+          min="0"
+          max="100"
+          onKeyDown={preventNonNumeric}
+        />
+        <span>%</span>
+      </div>
+    </div>
+
+    <div className="flex justify-between text-right">
+      <span>ราคาหลังหักส่วนลด</span>
+      <span className="font-semibold">
+        {totals.after_discount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+      </span>
+    </div>
+
+    <div className="flex justify-between text-right">
+      <span>ภาษีมูลค่าเพิ่ม ({VAT_PERCENT}%)</span>
+      <span>
+        {totals.vat.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+      </span>
+    </div>
+
+    <div className="flex justify-between font-bold text-lg pt-2 border-t">
+      <span>รวมเป็นเงินทั้งสิ้น</span>
+      <span className="text-yellow-600">
+        {totals.grand_total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+      </span>
+    </div>
+
+  </div>
+</div>
+
         </section>
 
         <section className="bg-white rounded-xl shadow p-6 mb-6">

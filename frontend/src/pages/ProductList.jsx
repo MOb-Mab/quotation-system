@@ -1,5 +1,5 @@
 //frontend/src/pages/ProductList.jsx
-import { useState, useEffect, useCallback,useRef} from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { FiPlus, FiSearch, FiEye, FiEdit2, FiTrash2, FiMinus, FiCheck, FiArrowLeft } from 'react-icons/fi';
 import ProductModal from '../components/ProductModal';
 import ProductViewModal from '../components/ProductViewModal';
@@ -16,7 +16,6 @@ export default function ProductList() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
   const hasConfirmedRef = useRef(false);
-  // State สำหรับ Select Mode
   const [selectedProducts, setSelectedProducts] = useState({});
   
   const location = useLocation();
@@ -46,8 +45,6 @@ export default function ProductList() {
     fetchProducts();
   }, []);
 
-  
-  
   /* =======================
      SELECT MODE FUNCTIONS
   ======================= */
@@ -56,10 +53,8 @@ export default function ProductList() {
       const newSelected = { ...prev };
       
       if (newSelected[product._id]) {
-        // ถ้ามีอยู่แล้ว ให้ลบออก
         delete newSelected[product._id];
       } else {
-        // ถ้ายังไม่มี ให้เพิ่มเข้าไปด้วยจำนวน 1
         newSelected[product._id] = {
           ...product,
           quantity: 1
@@ -78,7 +73,6 @@ export default function ProductList() {
         const currentQuantity = newSelected[productId].quantity;
         const newQuantity = currentQuantity + change;
         
-        // ✅ ถ้าจำนวนน้อยกว่า 1 ให้เซ็ตเป็น 1
         if (newQuantity < 1) {
           newSelected[productId] = {
             ...newSelected[productId],
@@ -96,7 +90,6 @@ export default function ProductList() {
     });
   }, []);
 
-  // ✅ ฟังก์ชันใหม่: อัปเดตจำนวนโดยการพิมพ์ตัวเลข
   const updateProductQuantityByInput = useCallback((productId, value) => {
     setSelectedProducts(prev => {
       const newSelected = { ...prev };
@@ -111,10 +104,9 @@ export default function ProductList() {
       return newSelected;
     });
   }, []);
-  
 
   const confirmSelection = useCallback(() => {
-    if (hasConfirmedRef.current) return; // 🛑 กันส่งซ้ำ
+    if (hasConfirmedRef.current) return;
     hasConfirmedRef.current = true;
   
     const selectedItems = Object.values(selectedProducts).map(product => ({
@@ -135,7 +127,6 @@ export default function ProductList() {
   
     navigate(-1);
   }, [selectedProducts, navigate]);
-  
 
   const getTotalSelectedCount = () => {
     return Object.keys(selectedProducts).length;
@@ -260,7 +251,7 @@ export default function ProductList() {
         </div>
       )}
 
-      {/* 🔍 Search */}
+      {/* Search */}
       <div className="flex gap-4 mb-6">
         <div className="flex-1 relative">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -273,21 +264,21 @@ export default function ProductList() {
         </div>
       </div>
 
-      {/* Product List */}
+      {/* Product List - BIGGER CARDS */}
       {filteredProducts.length === 0 ? (
         <div className="text-center text-gray-400 py-20">
           ไม่พบสินค้า
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredProducts.map((product) => {
             const isSelected = selectedProducts[product._id];
             
             return (
               <div
                 key={product._id}
-                className={`bg-white rounded-xl shadow-md overflow-hidden transition-all ${
-                  isSelectMode ? 'cursor-pointer hover:shadow-lg' : ''
+                className={`bg-white rounded-xl shadow-md hover:shadow-lg overflow-hidden transition-all ${
+                  isSelectMode ? 'cursor-pointer' : ''
                 } ${
                   isSelected ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''
                 }`}
@@ -297,12 +288,13 @@ export default function ProductList() {
                   }
                 }}
               >
-                <div className="h-56 bg-gray-100 flex items-center justify-center relative">
+                {/* Image */}
+                <div className="h-48 bg-gray-100 flex items-center justify-center relative overflow-hidden">
                   {product.imageUrl ? (
                     <img
                       src={product.imageUrl}
                       alt={product.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain p-3"
                     />
                   ) : (
                     <span className="text-gray-400">ไม่มีรูป</span>
@@ -310,16 +302,17 @@ export default function ProductList() {
                   
                   {/* Selected Badge */}
                   {isSelected && (
-                    <div className="absolute top-2 right-2 bg-yellow-400 text-black rounded-full p-2">
-                      <FiCheck size={20} />
+                    <div className="absolute top-2 right-2 bg-yellow-400 text-black rounded-full p-2 z-10">
+                      <FiCheck size={18} />
                     </div>
                   )}
                 </div>
 
+                {/* Content */}
                 <div className="p-4">
-                  <h3 className="font-bold text-lg">{product.name}</h3>
-                  <p className="mt-1">฿{product.price.toLocaleString()}</p>
-                  <p className="text-sm text-gray-500">
+                  <h3 className="font-bold text-base line-clamp-2 h-12">{product.name}</h3>
+                  <p className="mt-2 text-lg font-bold text-yellow-600">฿{product.price.toLocaleString()}</p>
+                  <p className="text-sm text-gray-500 mt-1">
                     หน่วย: {product.unit}
                   </p>
                   <p
@@ -329,7 +322,7 @@ export default function ProductList() {
                         : 'text-red-500'
                     }`}
                   >
-                    สถานะ: {product.status}
+                    {product.status}
                   </p>
 
                   {/* Select Mode: Quantity Controls */}
@@ -349,26 +342,24 @@ export default function ProductList() {
                         <FiMinus size={16} />
                       </button>
                       
-                      {/* ✅ Input สำหรับพิมพ์ตัวเลข */}
                       <input
-  type="number"
-  min="1"
-  value={isSelected.quantity}
-  onChange={(e) => {
-    updateProductQuantityByInput(product._id, e.target.value);
-  }}
-  onBlur={(e) => {
-    if (e.target.value === '' || Number(e.target.value) < 1) {
-      updateProductQuantityByInput(product._id, 1);
-    }
-  }}
-  className="font-bold text-lg w-20 text-center border rounded px-2 py-1
-             focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-white
-             [appearance:textfield]
-             [&::-webkit-outer-spin-button]:appearance-none
-             [&::-webkit-inner-spin-button]:appearance-none"
-/>
-
+                        type="number"
+                        min="1"
+                        value={isSelected.quantity}
+                        onChange={(e) => {
+                          updateProductQuantityByInput(product._id, e.target.value);
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === '' || Number(e.target.value) < 1) {
+                            updateProductQuantityByInput(product._id, 1);
+                          }
+                        }}
+                        className="font-bold text-base w-16 text-center border rounded px-2 py-1
+                                   focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-white
+                                   [appearance:textfield]
+                                   [&::-webkit-outer-spin-button]:appearance-none
+                                   [&::-webkit-inner-spin-button]:appearance-none"
+                      />
                       
                       <button
                         type="button"
@@ -391,9 +382,9 @@ export default function ProductList() {
                           setSelectedProduct(product);
                           setViewModal(true);
                         }}
-                        className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-2 rounded flex items-center justify-center gap-1"
+                        className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-2 rounded-lg flex items-center justify-center gap-1"
                       >
-                        <FiEye />
+                        <FiEye size={16} />
                         <span className="text-sm">ดู</span>
                       </button>
 
@@ -402,9 +393,9 @@ export default function ProductList() {
                           setSelectedProduct(product);
                           setOpenModal(true);
                         }}
-                        className="flex-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 px-3 py-2 rounded flex items-center justify-center gap-1"
+                        className="flex-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 px-3 py-2 rounded-lg flex items-center justify-center gap-1"
                       >
-                        <FiEdit2 />
+                        <FiEdit2 size={16} />
                         <span className="text-sm">แก้ไข</span>
                       </button>
 
@@ -413,9 +404,9 @@ export default function ProductList() {
                           setProductToDelete(product);
                           setConfirmModal(true);
                         }}
-                        className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded flex items-center justify-center gap-1"
+                        className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg flex items-center justify-center gap-1"
                       >
-                        <FiTrash2 />
+                        <FiTrash2 size={16} />
                         <span className="text-sm">ลบ</span>
                       </button>
                     </div>
