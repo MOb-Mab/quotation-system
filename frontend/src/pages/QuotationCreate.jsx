@@ -24,8 +24,6 @@ export default function QuotationCreate() {
   const hasAppliedSelectedProducts = useRef(false);
   const VAT_PERCENT = 7;
 
-  // State สำหรับเปิด-ปิด date fields
-
   const [formData, setFormData] = useState({
     quotation_number: '',
     issue_date: '',
@@ -45,10 +43,8 @@ export default function QuotationCreate() {
 ลูกค้าชำระได้ทั้งเงินสดและเช็ค
 ใบเสนอราคานี้มีกำหนด 30 วัน นับจากวันเสนอราคา
 ดำเนินการติดตั้งภายใน 60 วัน หลังจากได้รับการยืนยันการใช้บริการ`,
-    status: 'draft'
+    status: 'ร่าง'
   });
-
- 
 
   useEffect(() => {
     if (hasLoadedRef.current) return;
@@ -60,8 +56,6 @@ export default function QuotationCreate() {
         const parsedData = JSON.parse(savedForm);
         console.log('📋 Restored from sessionStorage:', parsedData.items.length, 'items');
         setFormData(parsedData);
-        // ตรวจสอบว่ามี date fields หรือไม่เพื่อ set toggle
-        
         sessionStorage.removeItem('quotationFormData');
         hasLoadedRef.current = true;
         return;
@@ -80,31 +74,55 @@ export default function QuotationCreate() {
     hasLoadedRef.current = true;
   }, [id]);
 
-  useEffect(() => {
-    const stored = sessionStorage.getItem('selectedProducts');
-  
-    if (!stored) return;
-    if (hasAppliedSelectedProducts.current) return;
-  
-    try {
-      const newProducts = JSON.parse(stored);
-      console.log('📦 Adding', newProducts.length, 'new products');
-  
-      if (Array.isArray(newProducts) && newProducts.length > 0) {
-        setFormData(prev => ({
-          ...prev,
-          items: [...prev.items, ...newProducts],
-        }));
-      }
-  
-      hasAppliedSelectedProducts.current = true;
-      sessionStorage.removeItem('selectedProducts');
-    } catch (err) {
-      console.error('Error parsing selectedProducts:', err);
-    }
-  }, []);
+ // ใน QuotationCreate.jsx — แก้ useEffect ที่รับ selectedProducts
+useEffect(() => {
+  const stored = sessionStorage.getItem('selectedProducts');
 
-  // Auto-calculate expiry date เมื่อเปิด date fields
+  if (!stored) return;
+  if (hasAppliedSelectedProducts.current) return;
+
+  try {
+    const newProducts = JSON.parse(stored);
+
+    if (Array.isArray(newProducts) && newProducts.length > 0) {
+      setFormData(prev => {
+        const mergedItems = [...prev.items];
+
+        newProducts.forEach(newItem => {
+          // หาว่ามีสินค้าชื่อเดียวกัน + ราคาทุนเดิมอยู่แล้วไหม
+          const existingIndex = mergedItems.findIndex(
+            item => item.name === newItem.name && item.cost === newItem.cost
+          );
+
+          if (existingIndex !== -1) {
+            // มีอยู่แล้ว → รวม quantity
+            const existing = mergedItems[existingIndex];
+            const newQuantity = existing.quantity + newItem.quantity;
+            const cost = existing.cost;
+            const margin = existing.margin;
+            const priceWithMargin = cost + (cost * margin / 100);
+            mergedItems[existingIndex] = {
+              ...existing,
+              quantity: newQuantity,
+              total: priceWithMargin * newQuantity,
+            };
+          } else {
+            // ไม่มี → เพิ่มแถวใหม่
+            mergedItems.push(newItem);
+          }
+        });
+
+        return { ...prev, items: mergedItems };
+      });
+    }
+
+    hasAppliedSelectedProducts.current = true;
+    sessionStorage.removeItem('selectedProducts');
+  } catch (err) {
+    console.error('Error parsing selectedProducts:', err);
+  }
+}, []);
+
   useEffect(() => {
     if (formData.issue_date && formData.validity_days) {
       const issueDate = new Date(formData.issue_date);
@@ -119,7 +137,6 @@ export default function QuotationCreate() {
       }));
     }
   }, [formData.issue_date, formData.validity_days]);
-  
 
   const loadQuotation = async () => {
     try {
@@ -136,13 +153,11 @@ export default function QuotationCreate() {
         total: parseFloat(item.total) || 0
       }));
 
-      
-
       setFormData({
         quotation_number: data.quotation_number,
-        issue_date: data.issue_date ? new Date(data.issue_date).toISOString().split('T')[0] : '',  // ✅
-  validity_days: data.validity_days || '',  // ✅
-  expiry_date: data.expiry_date ? new Date(data.expiry_date).toISOString().split('T')[0] : '',  // ✅
+        issue_date: data.issue_date ? new Date(data.issue_date).toISOString().split('T')[0] : '',
+        validity_days: data.validity_days || '',
+        expiry_date: data.expiry_date ? new Date(data.expiry_date).toISOString().split('T')[0] : '',
         customer_name: data.customer_name,
         recipient: data.recipient || '',
         customer_address: data.customer_address || '',
@@ -157,7 +172,7 @@ export default function QuotationCreate() {
 ลูกค้าชำระได้ทั้งเงินสดและเช็ค
 ใบเสนอราคานี้มีกำหนด 30 วัน นับจากวันเสนอราคา
 ดำเนินการติดตั้งภายใน 60 วัน หลังจากได้รับการยืนยันการใช้บริการ`,
-        status: data.status || 'draft'
+status: data.status || 'ร่าง'
       });
     } catch (err) {
       console.error('Load quotation error:', err);
@@ -210,6 +225,13 @@ export default function QuotationCreate() {
     });
   }, []);
 
+  // ✅ คำนวณราคาขายต่อหน่วย (ราคาทุน + margin)
+  const getSellPrice = (item) => {
+    const cost = parseFloat(item.cost) || 0;
+    const margin = parseFloat(item.margin) || 0;
+    return cost + (cost * margin / 100);
+  };
+
   const calculateTotals = () => {
     const subTotal = formData.items.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
     const discountAmount = subTotal * (parseFloat(formData.discount_percent) || 0) / 100;
@@ -250,9 +272,8 @@ export default function QuotationCreate() {
         coordinator_name: formData.coordinator_name,
         coordinator_phone: formData.coordinator_phone,
         issue_date: formData.issue_date || null,
-validity_days: formData.validity_days || null,
-expiry_date: formData.expiry_date || null,
-
+        validity_days: formData.validity_days || null,
+        expiry_date: formData.expiry_date || null,
         items: formData.items,
         sub_total: totals.sub_total,
         discount_percent: formData.discount_percent,
@@ -348,7 +369,6 @@ expiry_date: formData.expiry_date || null,
         <section className="bg-white rounded-xl shadow p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold">ข้อมูลใบเสนอราคา</h2>
-            
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -356,35 +376,31 @@ expiry_date: formData.expiry_date || null,
               <input className="input bg-gray-50" value={formData.quotation_number} readOnly />
             </Field>
             <Field label="วันที่ออกใบเสนอราคา">
-  <input
-    className="input"
-    type="date"
-    value={formData.issue_date || ''}  // ✅ เพิ่ม || ''
-    onChange={handleInputChange('issue_date')}
-   
-  />
-</Field>
-
-<Field label="ยืนราคาภายใน (วัน)">
-  <input
-    className="input"
-    type="number"
-    min="0"
-    value={formData.validity_days || ''}  // ✅ เพิ่ม || ''
-    onChange={handleInputChange('validity_days')}
-    onKeyDown={preventNonNumeric}
-    
-  />
-</Field>
-
-<Field label="Expire Date">
-  <input 
-    className="input bg-gray-50" 
-    type="date" 
-    value={formData.expiry_date || ''}  // ✅ เพิ่ม || ''
-    readOnly
-  />
-</Field>
+              <input
+                className="input"
+                type="date"
+                value={formData.issue_date || ''}
+                onChange={handleInputChange('issue_date')}
+              />
+            </Field>
+            <Field label="ยืนราคาภายใน (วัน)">
+              <input
+                className="input"
+                type="number"
+                min="0"
+                value={formData.validity_days || ''}
+                onChange={handleInputChange('validity_days')}
+                onKeyDown={preventNonNumeric}
+              />
+            </Field>
+            <Field label="Expire Date">
+              <input 
+                className="input bg-gray-50" 
+                type="date" 
+                value={formData.expiry_date || ''}
+                readOnly
+              />
+            </Field>
           </div>
         </section>
 
@@ -393,10 +409,10 @@ expiry_date: formData.expiry_date || null,
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="เรียน" required>
               <input 
-              className="input" 
-              value={formData.recipient} 
-              onChange={handleInputChange('recipient')}
-              required />
+                className="input" 
+                value={formData.recipient} 
+                onChange={handleInputChange('recipient')}
+                required />
             </Field>
             <Field label="ชื่อลูกค้า" required>
               <input
@@ -407,7 +423,7 @@ expiry_date: formData.expiry_date || null,
               />
             </Field>
           </div>
-          <Field label="ที่อยู่ลูกค้า" className="mt-4"required>
+          <Field label="ที่อยู่ลูกค้า" className="mt-4" required>
             <textarea
               className="input"
               rows={3}
@@ -416,8 +432,6 @@ expiry_date: formData.expiry_date || null,
               required
             />
           </Field>
-          
-          
         </section>
 
         <section className="bg-white rounded-xl shadow p-6 mb-6">
@@ -470,147 +484,149 @@ expiry_date: formData.expiry_date || null,
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full border text-sm">
-              <thead className="bg-gray-50">
+          <table className="w-full border text-sm table-auto">
+          <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 border text-center w-16">ลำดับ</th>
-                  <th className="px-4 py-2 border text-left">สินค้า/รายการ</th>
-                  <th className="px-4 py-2 border text-center w-24">จำนวน</th>
-                  <th className="px-4 py-2 border text-center w-24">หน่วย</th>
-                  <th className="px-4 py-2 border text-right w-32">ราคาต่อหน่วย</th>
+                  <th className="px-4 py-2 border text-center w-12">ลำดับ</th>
+                  <th className="px-4 py-2 border text-center w-13">สินค้า/รายการ</th>
+                  <th className="px-4 py-2 border text-center w-20">จำนวน</th>
+                  <th className="px-4 py-2 border text-center w-20">หน่วย</th>
+                  <th className="px-4 py-2 border text-center w-28">ราคาทุน</th>
                   <th className="px-4 py-2 border text-center w-24">Margin %</th>
-                  <th className="px-4 py-2 border text-right w-32">ราคารวม</th>
-                  <th className="px-4 py-2 border text-center w-16"></th>
+               
+                  <th className="px-4 py-2 border text-center w-28">ราคาขาย/หน่วย</th>                 
+                   <th className="px-4 py-2 border text-center w-28">ราคารวม</th>
+                  <th className="px-4 py-2 border text-center w-12"></th>
                 </tr>
               </thead>
               <tbody>
                 {formData.items.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-gray-400 py-6 border">
+                    <td colSpan={9} className="text-center text-gray-400 py-6 border">
                       ยังไม่มีรายการสินค้า กดปุ่ม "เพิ่มรายการ" เพื่อเพิ่มสินค้า
                     </td>
                   </tr>
                 ) : (
-                  formData.items.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 border text-center">{index + 1}</td>
-                      <td className="px-4 py-2 border">
-                        <input
-                          type="text"
-                          className="w-full px-2 py-1 border rounded"
-                          value={item.name}
-                          onChange={(e) => updateItem(index, 'name', e.target.value)}
-                          placeholder="ชื่อสินค้า"
-                        />
-                      </td>
-                      <td className="px-4 py-2 border">
-                        <input
-                          type="number"
-                          className="w-full px-2 py-1 border rounded text-center"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                          min="0"
-                          onKeyDown={preventNonNumeric}
-                        />
-                      </td>
-                      <td className="px-4 py-2 border">
-                        <input
-                          type="text"
-                          className="w-full px-2 py-1 border rounded text-center"
-                          value={item.unit}
-                          onChange={(e) => updateItem(index, 'unit', e.target.value)}
-                        />
-                      </td>
-                      <td className="px-4 py-2 border">
-                        <input
-                          type="number"
-                          className="w-full px-2 py-1 border rounded text-right"
-                          value={item.cost}
-                          onChange={(e) => updateItem(index, 'cost', e.target.value)}
-                          min="0"
-                          step="0.01"
-                          onKeyDown={preventNonNumeric}
-                        />
-                      </td>
-                      <td className="px-4 py-2 border">
-                        <input
-                          type="number"
-                          className="w-full px-2 py-1 border rounded text-center"
-                          value={item.margin}
-                          onChange={(e) => updateItem(index, 'margin', e.target.value)}
-                          min="0"
-                          onKeyDown={preventNonNumeric}
-                        />
-                      </td>
-                      <td className="px-4 py-2 border text-right font-semibold">
-                        {(item.total || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-4 py-2 border text-center">
-                        <button
-                          type="button"
-                          onClick={() => removeItem(index)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <FiTrash2 />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  formData.items.map((item, index) => {
+                    const sellPrice = getSellPrice(item);
+                    return (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 border text-center">{index + 1}</td>
+                        <td className="px-4 py-2 border">
+                          <input
+                            type="text"
+                            className="w-full px-2 py-1 border rounded"
+                            value={item.name}
+                            onChange={(e) => updateItem(index, 'name', e.target.value)}
+                            placeholder="ชื่อสินค้า"
+                          />
+                        </td>
+                        <td className="px-4 py-2 border">
+                          <input
+                            type="number"
+                            className="w-full px-2 py-1 border rounded text-center"
+                            value={item.quantity}
+                            onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                            min="0"
+                            onKeyDown={preventNonNumeric}
+                          />
+                        </td>
+                        <td className="px-4 py-2 border">
+                          <input
+                            type="text"
+                            className="w-full px-2 py-1 border rounded text-center"
+                            value={item.unit}
+                            onChange={(e) => updateItem(index, 'unit', e.target.value)}
+                          />
+                        </td>
+                        <td className="px-4 py-2 border">
+                          <input
+                            type="number"
+                            className="w-full px-2 py-1 border rounded text-center"
+                            value={item.cost}
+                            onChange={(e) => updateItem(index, 'cost', e.target.value)}
+                            min="0"
+                            step="0.01"
+                            onKeyDown={preventNonNumeric}
+                          />
+                        </td>
+                        <td className="px-4 py-2 border">
+                          <input
+                            type="number"
+                            className="w-full px-2 py-1 border rounded text-center"
+                            value={item.margin}
+                            onChange={(e) => updateItem(index, 'margin', e.target.value)}
+                            min="0"
+                            onKeyDown={preventNonNumeric}
+                          />
+                        </td>
+                        {/* ✅ ราคาขาย/หน่วย — read-only คำนวณจาก cost × (1 + margin%) */}
+                        <td className="px-4 py-2 border text-center ">
+                        {sellPrice.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-2 border text-center font-semibold">
+                          {(item.total || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-2 border text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeItem(index)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <FiTrash2 />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
 
           <div className="flex justify-end mt-6">
-  <div className="w-full md:w-1/3 space-y-2">
-
-    <div className="flex justify-between text-right">
-      <span>รวมเงิน</span>
-      <span className="font-semibold">
-        {totals.sub_total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-      </span>
-    </div>
-
-    <div className="flex justify-between items-center">
-      <span>ส่วนลด</span>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          className="input w-20 text-right"
-          value={formData.discount_percent}
-          onChange={handleNumberChange('discount_percent')}
-          min="0"
-          max="100"
-          onKeyDown={preventNonNumeric}
-        />
-        <span>%</span>
-      </div>
-    </div>
-
-    <div className="flex justify-between text-right">
-      <span>ราคาหลังหักส่วนลด</span>
-      <span className="font-semibold">
-        {totals.after_discount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-      </span>
-    </div>
-
-    <div className="flex justify-between text-right">
-      <span>ภาษีมูลค่าเพิ่ม ({VAT_PERCENT}%)</span>
-      <span>
-        {totals.vat.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-      </span>
-    </div>
-
-    <div className="flex justify-between font-bold text-lg pt-2 border-t">
-      <span>รวมเป็นเงินทั้งสิ้น</span>
-      <span className="text-yellow-600">
-        {totals.grand_total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-      </span>
-    </div>
-
-  </div>
-</div>
-
+            <div className="w-full md:w-1/3 space-y-2">
+              <div className="flex justify-between text-right">
+                <span>รวมเงิน</span>
+                <span className="font-semibold">
+                  {totals.sub_total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>ส่วนลด</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    className="input w-20 text-right"
+                    value={formData.discount_percent}
+                    onChange={handleNumberChange('discount_percent')}
+                    min="0"
+                    max="100"
+                    onKeyDown={preventNonNumeric}
+                  />
+                  <span>%</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-right">
+                <span>ราคาหลังหักส่วนลด</span>
+                <span className="font-semibold">
+                  {totals.after_discount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between text-right">
+                <span>ภาษีมูลค่าเพิ่ม ({VAT_PERCENT}%)</span>
+                <span>
+                  {totals.vat.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                <span>รวมเป็นเงินทั้งสิ้น</span>
+                <span className="text-yellow-600">
+                  {totals.grand_total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section className="bg-white rounded-xl shadow p-6 mb-6">

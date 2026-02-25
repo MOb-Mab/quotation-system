@@ -13,8 +13,8 @@ export default function MainLayout() {
       <Sidebar open={open} onClose={() => setOpen(false)} />
 
       {/* เนื้อหาของแต่ละหน้า */}
-      <main className="pt-16">
-        <Outlet />
+      <main className="pt-16 print:pt-0">
+      <Outlet />
       </main>
     </div>
   );

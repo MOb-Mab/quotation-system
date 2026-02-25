@@ -10,12 +10,10 @@ export default function ProductModal({ open, onClose, onSubmit, product }) {
     description: '',
     unit: '',
     price: '',
-    status: 'ใช้งาน',
-    image: null // เก็บ File object
+    image: null
   });
   const [imagePreview, setImagePreview] = useState(null);
 
-  // Load product data when editing OR reset when opening for new product
   useEffect(() => {
     if (open) {
       if (product) {
@@ -24,20 +22,11 @@ export default function ProductModal({ open, onClose, onSubmit, product }) {
           description: product.description || '',
           unit: product.unit,
           price: product.price.toString(),
-          status: product.status,
           image: null
         });
         setImagePreview(product.imageUrl || null);
       } else {
-        // Reset form for new product
-        setFormData({
-          name: '',
-          description: '',
-          unit: '',
-          price: '',
-          status: 'ใช้งาน',
-          image: null
-        });
+        setFormData({ name: '', description: '', unit: '', price: '', image: null });
         setImagePreview(null);
       }
     }
@@ -49,47 +38,31 @@ export default function ProductModal({ open, onClose, onSubmit, product }) {
       setTimeout(() => setIsAnimating(true), 10);
     } else {
       setIsAnimating(false);
-      setTimeout(() => {
-        setIsVisible(false);
-      }, 300);
+      setTimeout(() => setIsVisible(false), 300);
     }
   }, [open]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      console.log('📸 Image selected:', file.name, file.type, file.size);
-      
-      // เก็บ File object
       setFormData({ ...formData, image: file });
-      
-      // สร้าง preview
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
+      reader.onloadend = () => setImagePreview(reader.result);
       reader.readAsDataURL(file);
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
     if (formData.name && formData.unit && formData.price) {
       const submitData = {
         name: formData.name,
         description: formData.description,
         unit: formData.unit,
         price: parseFloat(formData.price),
-        status: formData.status,
-        image: formData.image, 
+        image: formData.image,
       };
-      
-      if (product) {
-        submitData._id = product._id;
-      }
-      
-      console.log('📤 Submitting:', submitData);
+      if (product) submitData._id = product._id;
       onSubmit(submitData);
     }
   };
@@ -98,44 +71,23 @@ export default function ProductModal({ open, onClose, onSubmit, product }) {
 
   return (
     <>
-      {/* Overlay */}
       <div
         onClick={onClose}
-        className={`
-          fixed inset-0 bg-black/50 z-40
-          transition-opacity duration-300 ease-out
-          ${isAnimating ? 'opacity-100' : 'opacity-0'}
-        `}
+        className={`fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 ease-out ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
       />
-
-      {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`
-            bg-white w-full max-w-xl rounded-2xl p-6 relative
-            shadow-2xl
-            transform transition-all duration-300 ease-out
-            ${isAnimating 
-              ? 'scale-100 opacity-100 translate-y-0' 
-              : 'scale-95 opacity-0 translate-y-4'
-            }
-          `}
-          style={{
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-          }}
+          className={`bg-white w-full max-w-xl rounded-2xl p-6 relative shadow-2xl transform transition-all duration-300 ease-out ${
+            isAnimating ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'
+          }`}
+          style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}
         >
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors duration-200"
-          >
+          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors duration-200">
             <FiX size={20} />
           </button>
 
-          <h2 className="text-xl font-bold mb-4">
-            {product ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'}
-          </h2>
+          <h2 className="text-xl font-bold mb-4">{product ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'}</h2>
 
           <form onSubmit={handleSubmit}>
             {/* Upload image */}
@@ -153,22 +105,15 @@ export default function ProductModal({ open, onClose, onSubmit, product }) {
                     <p className="text-gray-500">คลิกเพื่ออัปโหลด</p>
                   </>
                 )}
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={handleImageChange}
-                />
+                <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
               </label>
             </div>
 
             {/* Name */}
             <div className="mb-4">
-              <label className="block font-medium mb-1">
-                ชื่อสินค้า <span className="text-red-500">*</span>
-              </label>
-              <input 
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400" 
+              <label className="block font-medium mb-1">ชื่อสินค้า <span className="text-red-500">*</span></label>
+              <input
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 placeholder="กรอกชื่อสินค้า"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -189,27 +134,22 @@ export default function ProductModal({ open, onClose, onSubmit, product }) {
             </div>
 
             {/* Unit & Price */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-4 mb-6">
               <div>
-                <label className="block font-medium mb-1">
-                  หน่วย <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400" 
+                <label className="block font-medium mb-1">หน่วย <span className="text-red-500">*</span></label>
+                <input
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                   placeholder="ชิ้น, กล่อง"
                   value={formData.unit}
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                   required
                 />
               </div>
-
               <div>
-                <label className="block font-medium mb-1">
-                  ราคา/หน่วย <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="number" 
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400" 
+                <label className="block font-medium mb-1">ราคา <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                   placeholder="0.00"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
@@ -218,32 +158,12 @@ export default function ProductModal({ open, onClose, onSubmit, product }) {
               </div>
             </div>
 
-            {/* Status */}
-            <div className="mb-6">
-              <label className="block font-medium mb-1">สถานะ</label>
-              <select 
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              >
-                <option>ใช้งาน</option>
-                <option>ไม่ใช้งาน</option>
-              </select>
-            </div>
-
             {/* Actions */}
             <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              >
+              <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors duration-200">
                 ยกเลิก
               </button>
-              <button 
-                type="submit"
-                className="px-6 py-2 bg-yellow-400 hover:bg-yellow-500 rounded-lg font-semibold transition-colors duration-200"
-              >
+              <button type="submit" className="px-6 py-2 bg-yellow-400 hover:bg-yellow-500 rounded-lg font-semibold transition-colors duration-200">
                 {product ? 'บันทึก' : 'เพิ่มสินค้า'}
               </button>
             </div>

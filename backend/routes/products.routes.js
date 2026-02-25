@@ -37,6 +37,31 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
+ * BULK INSERT products — ต้องอยู่ก่อน POST / เสมอ
+ */
+router.post('/bulk', async (req, res) => {
+  try {
+    console.log(`📥 POST /api/products/bulk — ${req.body.length} items`);
+
+    const products = req.body.map(p => ({
+      name:        p.name,
+      description: p.description || '',
+      unit:        p.unit || 'ชิ้น',
+      price:       parseFloat(p.price),
+      margin:      0,
+    }));
+
+    const result = await Product.insertMany(products);
+    console.log(`✅ Bulk inserted ${result.length} products`);
+
+    res.status(201).json({ inserted: result.length });
+  } catch (err) {
+    console.error('❌ Bulk insert error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
  * CREATE product with image upload
  */
 router.post('/', upload.single('image'), async (req, res) => {
@@ -46,16 +71,15 @@ router.post('/', upload.single('image'), async (req, res) => {
     console.log('File:', req.file);
 
     const productData = {
-      name: req.body.name,
+      name:        req.body.name,
       description: req.body.description || '',
-      unit: req.body.unit,
-      price: parseFloat(req.body.price),
-      status: req.body.status || 'ใช้งาน',
+      unit:        req.body.unit,
+      price:       parseFloat(req.body.price),
+      margin:      0,
     };
 
-    // ถ้ามีไฟล์รูปภาพ
     if (req.file) {
-      productData.imageUrl = req.file.path;
+      productData.imageUrl      = req.file.path;
       productData.imagePublicId = req.file.filename;
       console.log('✅ Image uploaded to Cloudinary:', req.file.path);
     }
@@ -66,7 +90,7 @@ router.post('/', upload.single('image'), async (req, res) => {
     res.status(201).json(product);
   } catch (err) {
     console.error('❌ Error creating product:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: err.message,
       error: process.env.NODE_ENV === 'development' ? err : {}
     });
@@ -79,25 +103,19 @@ router.post('/', upload.single('image'), async (req, res) => {
 router.put('/:id', upload.single('image'), async (req, res) => {
   try {
     console.log('📝 PUT /api/products/:id');
-    console.log('Body:', req.body);
-    console.log('File:', req.file);
 
     const product = await Product.findById(req.params.id);
-    
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Update basic fields
-    product.name = req.body.name || product.name;
+    product.name        = req.body.name        || product.name;
     product.description = req.body.description !== undefined ? req.body.description : product.description;
-    product.unit = req.body.unit || product.unit;
-    product.price = req.body.price ? parseFloat(req.body.price) : product.price;
-    product.status = req.body.status || product.status;
+    product.unit        = req.body.unit        || product.unit;
+    product.price       = req.body.price       ? parseFloat(req.body.price) : product.price;
+    product.margin      = 0;
 
-    // ถ้ามีรูปใหม่
     if (req.file) {
-      // ลบรูปเก่าจาก Cloudinary
       if (product.imagePublicId) {
         try {
           await cloudinary.uploader.destroy(product.imagePublicId);
@@ -106,8 +124,7 @@ router.put('/:id', upload.single('image'), async (req, res) => {
           console.warn('Warning: Could not delete old image:', err.message);
         }
       }
-
-      product.imageUrl = req.file.path;
+      product.imageUrl      = req.file.path;
       product.imagePublicId = req.file.filename;
       console.log('✅ New image uploaded to Cloudinary');
     }
@@ -128,14 +145,12 @@ router.put('/:id', upload.single('image'), async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     console.log('🗑️ DELETE /api/products/:id');
-    
-    const product = await Product.findById(req.params.id);
 
+    const product = await Product.findById(req.params.id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // ลบรูปจาก Cloudinary
     if (product.imagePublicId) {
       try {
         await cloudinary.uploader.destroy(product.imagePublicId);

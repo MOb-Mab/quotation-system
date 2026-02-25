@@ -22,6 +22,12 @@ const ProductSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    margin: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
     status: {
       type: String,
       enum: ['ใช้งาน', 'ไม่ใช้งาน'],

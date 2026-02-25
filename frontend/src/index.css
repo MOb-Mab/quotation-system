@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,7 +8,8 @@ html, body, #root {
   height: 100%;
 }
 
-/* เพิ่มส่วนนี้ */
+
+
 @layer components {
   .input {
     @apply w-full
@@ -25,5 +28,58 @@ html, body, #root {
 
   .th {
     @apply border px-3 py-2 text-left font-medium text-gray-600;
+  }
+
+  .font-kanit {
+    font-family: 'Kanit', sans-serif;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:p-0 {
+    padding: 0 !important;
+  }
+
+  .pdf-content {
+    width: 205mm;
+    min-height: 297mm;
+    padding: 15mm;
+    box-sizing: border-box;
+    background: white;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  .document-footer {
+    page-break-inside: avoid;
   }
 }
