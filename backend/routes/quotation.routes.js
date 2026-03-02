@@ -6,11 +6,30 @@ const Quotation = require('../models/Quotation');
 // CREATE
 router.post('/', async (req, res) => {
   try {
+    // ✅ เช็คว่าเลขที่ซ้ำหรือไม่
+    const existing = await Quotation.findOne({ 
+      quotation_number: req.body.quotation_number 
+    });
+    
+    if (existing) {
+      return res.status(400).json({ 
+        message: 'เลขที่ใบเสนอราคานี้มีอยู่แล้ว กรุณาใช้เลขที่อื่น' 
+      });
+    }
+
     const quotation = await Quotation.create(req.body);
     console.log('✅ Quotation created:', quotation.quotation_number);
     res.status(201).json(quotation);
   } catch (err) {
     console.error('❌ Create quotation error:', err);
+    
+    // ✅ จัดการ unique constraint error
+    if (err.code === 11000) {
+      return res.status(400).json({ 
+        message: 'เลขที่ใบเสนอราคานี้มีอยู่แล้ว' 
+      });
+    }
+    
     res.status(400).json({ message: err.message });
   }
 });
@@ -59,11 +78,38 @@ router.get('/:id', async (req, res) => {
 // UPDATE
 router.put('/:id', async (req, res) => {
   try {
-    const quotation = await Quotation.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    if (!quotation) return res.status(404).json({ message: 'Quotation not found' });
+    // ✅ เช็คว่าเลขที่ซ้ำกับใบอื่นหรือไม่
+    if (req.body.quotation_number) {
+      const existing = await Quotation.findOne({ 
+        quotation_number: req.body.quotation_number,
+        _id: { $ne: req.params.id } // ยกเว้นตัวเอง
+      });
+      
+      if (existing) {
+        return res.status(400).json({ 
+          message: 'เลขที่ใบเสนอราคานี้มีอยู่แล้ว' 
+        });
+      }
+    }
+
+    const quotation = await Quotation.findByIdAndUpdate(
+      req.params.id, 
+      req.body, 
+      { new: true, runValidators: true }
+    );
+    
+    if (!quotation) {
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+    
     console.log('✅ Quotation updated:', quotation.quotation_number);
     res.json(quotation);
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ 
+        message: 'เลขที่ใบเสนอราคานี้มีอยู่แล้ว' 
+      });
+    }
     res.status(400).json({ message: err.message });
   }
 });

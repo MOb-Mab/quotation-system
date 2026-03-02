@@ -23,10 +23,19 @@ export default function ProductList() {
   const [bulkSelected, setBulkSelected] = useState({});
   const [alertModal, setAlertModal] = useState(null);
   const [confirmPopup, setConfirmPopup] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
   const isSelectMode = new URLSearchParams(location.search).get('selectMode') === 'true';
+
+  /* =======================
+     TOAST HELPER
+  ======================= */
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
 
   /* =======================
      FETCH PRODUCTS
@@ -154,11 +163,13 @@ export default function ProductList() {
       } else {
         await handleAddProduct(formData);
       }
-      await fetchProducts();
       setOpenModal(false);
       setSelectedProduct(null);
+      showToast(formData._id ? 'แก้ไขสินค้าสำเร็จ ✓' : 'เพิ่มสินค้าสำเร็จ ✓', 'success');
+      fetchProducts();
     } catch (err) {
       console.error('❌ Submit failed:', err);
+      throw err;
     }
   };
 
@@ -178,15 +189,14 @@ export default function ProductList() {
   const downloadTemplate = async () => {
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet('สินค้า');
-  
+
     ws.columns = [
       { key: 'name',        width: 28 },
       { key: 'description', width: 38 },
       { key: 'price',       width: 14 },
       { key: 'unit',        width: 12 },
     ];
-  
-    // Row 1 — Title
+
     ws.mergeCells('A1:D1');
     const titleCell = ws.getCell('A1');
     titleCell.value = 'Import Template — สินค้า';
@@ -194,8 +204,7 @@ export default function ProductList() {
     titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(1).height = 28;
-  
-    // Row 2 — Subtitle
+
     ws.mergeCells('A2:D2');
     const subCell = ws.getCell('A2');
     subCell.value = 'กรอกข้อมูลตั้งแต่ Row 4  •  ชื่อสินค้า / รายละเอียด / ราคา เป็น field บังคับ (*)';
@@ -203,8 +212,7 @@ export default function ProductList() {
     subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
     subCell.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(2).height = 18;
-  
-    // Row 3 — Headers (ขยับขึ้นมาจาก Row 4)
+
     const headerRow = ws.getRow(3);
     headerRow.height = 22;
     const headers = [
@@ -224,8 +232,7 @@ export default function ProductList() {
         left: { style: 'thin' }, right: { style: 'thin' },
       };
     });
-  
-    // Rows 4-6 — Sample data
+
     const samples = [
       ['RG-ES106F-P',    'Router Ruijie 6 Port PoE 48V',       810,  'ตัว'],
       ['Switch 24 Port', 'Managed Switch 24 Port Gigabit PoE', 4500, 'ตัว'],
@@ -246,8 +253,7 @@ export default function ProductList() {
         };
       });
     });
-  
-    // Rows 7-16 — Empty input rows
+
     for (let r = 7; r <= 16; r++) {
       const row = ws.getRow(r);
       row.height = 18;
@@ -260,8 +266,7 @@ export default function ProductList() {
         };
       }
     }
-  
-    // Row 17 — Legend
+
     ws.mergeCells('A17:D17');
     const legendCell = ws.getCell('A17');
     legendCell.value = 'สีน้ำเงิน = บังคับกรอก    สีเขียว = ไม่บังคับ (หน่วย default = ชิ้น)';
@@ -269,7 +274,7 @@ export default function ProductList() {
     legendCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
     legendCell.alignment = { horizontal: 'center' };
     ws.getRow(17).height = 16;
-  
+
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -293,11 +298,10 @@ export default function ProductList() {
         const workbook = XLSX.read(event.target.result, { type: 'binary' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { range: 2 })
-        .filter(row => {
-          // กรอง legend row และ row ว่างออก
-          const name = String(row['ชื่อสินค้า *'] || row['ชื่อสินค้า'] || row['name'] || '').trim();
-          return name && !name.startsWith('สีน้ำเงิน');
-        });
+          .filter(row => {
+            const name = String(row['ชื่อสินค้า *'] || row['ชื่อสินค้า'] || row['name'] || '').trim();
+            return name && !name.startsWith('สีน้ำเงิน');
+          });
 
         const validProducts = [];
         const invalidProducts = [];
@@ -322,50 +326,55 @@ export default function ProductList() {
           }
         });
 
-        // เช็คซ้ำกับสินค้าในระบบ
+        // ✅ แยก unique vs duplicate
         const existingNames = products.map(p => p.name.trim().toLowerCase());
-        const duplicates = validProducts.filter(p =>
-          existingNames.includes(p.name.trim().toLowerCase())
-        );
-
-        // เช็คซ้ำกันภายใน document
         const seenInDoc = [];
-        const duplicatesInDoc = [];
+        const uniqueProducts    = [];
+        const duplicateProducts = [];
+
         validProducts.forEach(p => {
           const key = p.name.trim().toLowerCase();
-          if (seenInDoc.includes(key)) {
-            duplicatesInDoc.push(p.name);
+          const isDupInSystem = existingNames.includes(key);
+          const isDupInDoc    = seenInDoc.includes(key);
+
+          if (isDupInSystem || isDupInDoc) {
+            duplicateProducts.push(p);
           } else {
+            uniqueProducts.push(p);
             seenInDoc.push(key);
           }
         });
 
-        const proceedImport = async () => {
-          if (invalidProducts.length > 0) {
-            setImportWarning({ validProducts, invalidProducts });
-          } else {
-            await processImport(validProducts);
+        // ✅ มีของซ้ำ
+        if (duplicateProducts.length > 0) {
+          const dupCount    = duplicateProducts.length;
+          const uniqueCount = uniqueProducts.length;
+
+          // ไม่มีของใหม่เลย — แจ้งแล้วจบ ไม่ต้องถาม
+          if (uniqueCount === 0) {
+            setAlertModal({
+              message: `พบสินค้าซ้ำ ${dupCount} รายการ\n${duplicateProducts.map(p => `• ${p.name}`).join('\n')}\n\nไม่มีสินค้าใหม่ที่จะนำเข้า`,
+              type: 'error',
+            });
+            return;
           }
-        };
 
-        if (duplicates.length > 0 || duplicatesInDoc.length > 0) {
-          const lines = [];
-          if (duplicates.length > 0)
-            lines.push(`มีอยู่ในระบบแล้ว:\n${duplicates.map(p => `• ${p.name}`).join('\n')}`);
-          if (duplicatesInDoc.length > 0)
-            lines.push(`ซ้ำกันในไฟล์:\n${duplicatesInDoc.map(n => `• ${n}`).join('\n')}`);
-
-          setConfirmPopup({
-            message: `⚠️ พบสินค้าซ้ำ\n\n${lines.join('\n\n')}\n\nต้องการนำเข้าต่อหรือไม่?`,
-            onConfirm: async () => {
-              setConfirmPopup(null);
-              await proceedImport();
-            }
-          });
+          // มีของใหม่ด้วย — แจ้งให้รู้แล้วถามยืนยัน
+setConfirmPopup({
+  message: `พบรายการสินค้าซ้ำ ${dupCount} รายการ\n${duplicateProducts.map(p => `• ${p.name}`).join('\n')}\n\nจะนำเข้าเพียง ${uniqueCount} รายการที่ไม่ซ้ำ`,
+  confirmLabel: 'นำเข้า',
+  cancelLabel: 'ยกเลิก',
+  onConfirm: async () => {
+    setConfirmPopup(null);
+    await proceedImport(uniqueProducts, invalidProducts);
+  },
+});
           return;
         }
 
-        await proceedImport();
+        // ไม่มีของซ้ำเลย — นำเข้าได้ทันที
+        await proceedImport(validProducts, invalidProducts);
+
       } catch (err) {
         console.error('Import error:', err);
         setAlertModal({ message: 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล', type: 'error' });
@@ -375,7 +384,15 @@ export default function ProductList() {
     e.target.value = '';
   };
 
-  // ✅ Bulk insert — 1 request แทน N requests
+  // ✅ เช็ค invalidProducts ก่อน processImport
+  const proceedImport = async (validProducts, invalidProducts = []) => {
+    if (invalidProducts.length > 0) {
+      setImportWarning({ validProducts, invalidProducts });
+    } else {
+      await processImport(validProducts);
+    }
+  };
+
   const processImport = async (validProducts) => {
     try {
       const result = await api.post('/products/bulk', validProducts);
@@ -425,6 +442,8 @@ export default function ProductList() {
     if (ids.length === 0) return;
     setConfirmPopup({
       message: `ต้องการลบสินค้า ${ids.length} รายการ?`,
+      confirmLabel: 'ลบ',
+      cancelLabel: 'ยกเลิก',
       onConfirm: async () => {
         setConfirmPopup(null);
         for (const id of ids) {
@@ -442,6 +461,21 @@ export default function ProductList() {
   ======================= */
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[9999] px-5 py-3 rounded-xl shadow-lg text-white font-medium
+          flex items-center gap-2 transition-all duration-300
+          ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}
+        >
+          {toast.type === 'success'
+            ? <FiCheck size={18} />
+            : <span className="font-bold">!</span>
+          }
+          {toast.message}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
@@ -481,13 +515,13 @@ export default function ProductList() {
               </>
             ) : (
               <>
-               <button
-  onClick={downloadTemplate}
-  className="bg-white border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg flex items-center gap-2 font-semibold text-gray-700"
->
-  <FiDownload size={16} />
-  ดาวน์โหลด Template
-</button>
+                <button
+                  onClick={downloadTemplate}
+                  className="bg-white border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg flex items-center gap-2 font-semibold text-gray-700"
+                >
+                  <FiDownload size={16} />
+                  ดาวน์โหลด Template
+                </button>
                 <label className="bg-white border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg flex items-center gap-2 font-semibold cursor-pointer">
                   <FiPlus />นำเข้าข้อมูล
                   <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
@@ -738,21 +772,21 @@ export default function ProductList() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 text-center">
             <div className="w-14 h-14 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
-              <span className="text-yellow-500 text-2xl font-bold">?</span>
+              <span className="text-yellow-500 text-2xl font-bold">!</span>
             </div>
             <p className="text-gray-700 font-medium mb-6 whitespace-pre-line">{confirmPopup.message}</p>
             <div className="flex gap-3 justify-center">
               <button
-                onClick={() => setConfirmPopup(null)}
+                onClick={() => confirmPopup.onCancel ? confirmPopup.onCancel() : setConfirmPopup(null)}
                 className="px-6 py-2 border rounded-lg hover:bg-gray-50 font-semibold"
               >
-                ยกเลิก
+                {confirmPopup.cancelLabel || 'ยกเลิก'}
               </button>
               <button
                 onClick={confirmPopup.onConfirm}
                 className="px-6 py-2 bg-yellow-400 hover:bg-yellow-500 rounded-lg font-semibold"
               >
-                ยืนยัน
+                {confirmPopup.confirmLabel || 'ยืนยัน'}
               </button>
             </div>
           </div>

@@ -1,19 +1,11 @@
 // frontend/src/components/quotation/QuotationDocument.jsx
 import React from 'react';
 
-export default function QuotationDocument({ quotation }) {
+export default function QuotationDocument({ quotation, showLogo = true, showFooter = true }) {
   const COMPANY_NAME = 'บริษัท โทรคมนาคมแห่งชาติ จำกัด (มหาชน)';
   const LOGO_PATH = '/NT logo.png';
-  
-  const FOOTER_ADDRESS_LINE1 = '99 ถนนแจ้งวัฒนะ แขวงทุ่งสองห้อง เขตหลักสี่ กรุงเทพมหานคร 10210';
-  const FOOTER_ADDRESS_LINE2 = '99 Chaengwattana Road,Thung Song Hong,Lak Si,Bangkok 10210';
-  const FOOTER_NT_REFERENCE = 'NT001 รหัสพัสดุ 10065112 กระดาษจดหมาย (ใช้ภายนอก) หน่วยนับ BK.';
-  const FOOTER_ADDITIONAL_TEXT = 'พิมพ์ที่ : ศูนย์บริการสั่งพิมพ์ บริษัท โทรคมนาคมแห่งชาติ จำกัด (มหาชน) โทร. 0 2591 8042';
-  const FOOTER_WEBSITE = 'www.ntplc.co.th';
-  const FOOTER_CONTACT_CENTER = 'Contact Center 1888';
-  const FOOTER_TAX_INFO = 'เลขประจำตัวผู้เสียภาษีอากร / Tax ID : 0107564000014';
-  const FOOTER_BACKGROUND_COLOR = '#FBBF24';
-  
+  const FOOTER_PATH = '/Footer.png';
+
   const {
     quotation_number, issue_date, expiry_date, customer_name, customer_address,
     recipient, prepared_by, prepared_phone, coordinator_name, coordinator_phone,
@@ -21,8 +13,12 @@ export default function QuotationDocument({ quotation }) {
     vat = 0, vat_percent = 7, grand_total = 0, note,
   } = quotation || {};
 
-  const noteLines = note && note.trim() !== '' ? note.split('\n').slice(0, 4) : ['-'];
+  // ✅ ไม่ slice แล้ว — รับได้ไม่จำกัดบรรทัด
+  const noteLines = note && note.trim() !== '' ? note.split('\n') : ['-'];
   while (noteLines.length < 4) noteLines.push('');
+
+  // 4 บรรทัดแรกใช้คู่กับ summary rows, ส่วนที่เกินจะ render เป็น extra rows
+  const extraNoteLines = noteLines.slice(4);
 
   const subtotalAfterDiscount = sub_total - (discount || 0);
 
@@ -36,7 +32,6 @@ export default function QuotationDocument({ quotation }) {
     });
   };
 
-  // ✅ ราคาขายต่อหน่วย = ราคาทุน × (1 + margin%)
   const getSellPrice = (item) => {
     const cost = parseFloat(item.cost) || 0;
     const margin = parseFloat(item.margin) || 0;
@@ -53,23 +48,32 @@ export default function QuotationDocument({ quotation }) {
   };
 
   return (
-<div className="pdf-content bg-white w-[210mm] mx-auto shadow-lg print:shadow-none p-4 print:p-0">      {/* HEADER */}
-      <div className="flex items-start justify-between mb-1">
-        <div className="flex items-center gap-4">
+    <div className="pdf-content bg-white w-[210mm] mx-auto shadow-lg print:shadow-none p-4 print:px-6 print:pt-6 print:pb-4">
+
+      {/* HEADER — logo หรือ spacer เพื่อป้องกันชิดขอบบน */}
+      {showLogo ? (
+        <div className="flex items-start justify-between mb-1">
           <img src={LOGO_PATH} alt="NT logo" className="h-12 print:h-10" />
         </div>
+      ) : (
+        <div className="mb-3 print:mb-6" />
+      )}
+
+      {/* COMPANY NAME — อยู่เหนือ border box */}
+      <div className="text-center py-1">
+        <h1 className="text-xs font-bold print:text-[11px]">{COMPANY_NAME}</h1>
       </div>
-  
+
       {/* BIG BORDER BOX */}
       <div className="border border-black p-2 print:p-2">
-        
+
         {/* TITLE */}
         <div className="text-center py-1 mb-1">
           <h1 className="text-xs font-bold text-center print:text-[11px]">
-            {COMPANY_NAME}<br />ใบเสนอราคา
+            ใบเสนอราคา
           </h1>
         </div>
-  
+
         {/* CUSTOMER INFO */}
         <div className="grid grid-cols-2 mb-4 text-xs">
           <div className="space-y-0.5">
@@ -131,15 +135,23 @@ export default function QuotationDocument({ quotation }) {
 
         {/* TABLE */}
         <div className="-mx-2 mb-1">
-          <table className="w-full border-collapse border-t border-b border-black text-xs">
+          <table className="w-full border-collapse border-t border-b border-black text-xs table-fixed">
+            <colgroup>
+              <col className="w-10" />
+              <col />
+              <col className="w-12" />
+              <col className="w-16" />
+              <col className="w-24" />
+              <col className="w-24" />
+            </colgroup>
             <thead>
               <tr>
-                <th className="border-t border-b border-r border-black p-1.5 text-center w-12">ลำดับ</th>
+                <th className="border-t border-b border-r border-black p-1.5 text-center">ลำดับ</th>
                 <th className="border-t border-b border-r border-black p-1.5 text-center">รายการ</th>
-                <th className="border-t border-b border-r border-black p-1.5 text-center w-16">จำนวน</th>
-                <th className="border-t border-b border-r border-black p-1.5 text-center w-20">หน่วย</th>
-                <th className="border-t border-b border-r border-black p-1.5 text-center w-28">ราคาต่อหน่วย</th>
-                <th className="border-t border-b border-black p-1.5 text-center w-28">ราคารวม</th>
+                <th className="border-t border-b border-r border-black p-1.5 text-center">จำนวน</th>
+                <th className="border-t border-b border-r border-black p-1.5 text-center">หน่วย</th>
+                <th className="border-t border-b border-r border-black p-1.5 text-center">ราคาต่อหน่วย</th>
+                <th className="border-t border-b border-black p-1.5 text-center">ราคารวม</th>
               </tr>
             </thead>
             <tbody>
@@ -155,15 +167,18 @@ export default function QuotationDocument({ quotation }) {
               {items && items.map((item, i) => (
                 <tr key={i}>
                   <td className="border-b border-r border-black p-1.5 text-center">{i + 1}</td>
-                  <td className="border-b border-r border-black p-1.5">
+                  <td className="border-b border-r border-black p-1.5 overflow-hidden"
+                      style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineBreak: 'strict' }}>
                     {item.name}
                     {item.description && (
-                      <div className="text-xs text-gray-600">({item.description})</div>
+                      <div className="text-xs text-gray-600"
+                           style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineBreak: 'strict' }}>
+                        ({item.description})
+                      </div>
                     )}
                   </td>
                   <td className="border-b border-r border-black p-1.5 text-center">{item.quantity}</td>
                   <td className="border-b border-r border-black p-1.5 text-center">{item.unit}</td>
-                  {/* ✅ ราคาต่อหน่วย = ราคาขาย (ทุน + margin%) */}
                   <td className="border-b border-r border-black p-1.5 text-right">
                     {formatCurrency(getSellPrice(item))}
                   </td>
@@ -171,6 +186,7 @@ export default function QuotationDocument({ quotation }) {
                 </tr>
               ))}
 
+              {/* Summary rows — noteLines[0..3] คู่กับ summary ตามปกติ */}
               <tr>
                 <td colSpan="2" className="border-b border-r border-black p-2 text-xs"><span className="font-semibold">หมายเหตุ</span></td>
                 <td colSpan="2" className="border-b border-r border-black p-2 text-right text-xs">รวมเงิน</td>
@@ -185,7 +201,9 @@ export default function QuotationDocument({ quotation }) {
               </tr>
               <tr>
                 <td colSpan="2" className="border-b border-r border-black p-2 text-xs">{noteLines[1]}</td>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-right text-xs">ราคาหลังหักส่วนลด</td>
+                <td colSpan="2" className="border-b border-r border-black p-2 text-right text-xs whitespace-nowrap">
+                  ราคาหลังหักส่วนลด
+                </td>
                 <td className="border-b border-r border-black p-2"></td>
                 <td className="border-b border-black p-2 text-right text-xs">{formatCurrency(subtotalAfterDiscount)}</td>
               </tr>
@@ -201,6 +219,14 @@ export default function QuotationDocument({ quotation }) {
                 <td className="border-b border-r border-black p-2"></td>
                 <td className="border-b border-black p-2 text-right text-xs">{formatCurrency(grand_total)}</td>
               </tr>
+
+              {/* ✅ Extra rows สำหรับ noteLines ที่เกิน 4 บรรทัด */}
+              {/* ✅ Extra rows สำหรับ noteLines ที่เกิน 4 บรรทัด */}
+              {extraNoteLines.map((line, i) => (
+                <tr key={`extra-note-${i}`}>
+                  <td colSpan="6" className="border-b border-black px-2 py-1 text-xs">{line}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -240,30 +266,21 @@ export default function QuotationDocument({ quotation }) {
         </div>
       </div>
 
-    {/* FOOTER */}
-<div
-  style={{ backgroundColor: FOOTER_BACKGROUND_COLOR, fontFamily: '"Kanit", sans-serif' }}
-  className="mt-6 py-[9px] px-5 text-black text-[9px] leading-none rounded-full"
->
-  <div className="grid grid-cols-2 gap-1">
-    <div>
-      <p className="leading-none">{FOOTER_ADDRESS_LINE1}</p>
-      <p className="leading-none mt-1">{FOOTER_ADDRESS_LINE2}</p>
-    </div>
-    <div className="text-right">
-      <p className="leading-none">{FOOTER_WEBSITE} | {FOOTER_CONTACT_CENTER}</p>
-      <p className="leading-none mt-1">{FOOTER_TAX_INFO}</p>
-    </div>
-  </div>
-</div>
+      {/* Footer.png — toggle ได้ */}
+      {showFooter && (
+        <div className="mt-4">
+          <img src={FOOTER_PATH} alt="NT Footer" className="w-full" />
+        </div>
+      )}
 
-<div
-  style={{ fontFamily: '"Kanit", sans-serif' }}
-  className="grid grid-cols-2 gap-1 px-3 mt-1 text-[9px] text-gray-700"
->
-  <div><p className="leading-none">{FOOTER_NT_REFERENCE}</p></div>
-  <div className="text-right"><p className="leading-none">{FOOTER_ADDITIONAL_TEXT}</p></div>
-</div>
+      {/* ข้อความ NT001 — แสดงเสมอ */}
+      <div
+        style={{ fontFamily: '"Kanit", sans-serif' }}
+        className="grid grid-cols-2 gap-1 px-3 mt-1 text-[9px] text-gray-700"
+      >
+        <div><p className="leading-none">NT001 รหัสพัสดุ 10065112 กระดาษจดหมาย (ใช้ภายนอก) หน่วยนับ BK.</p></div>
+        <div className="text-right"><p className="leading-none">พิมพ์ที่ : ศูนย์บริการสั่งพิมพ์ บริษัท โทรคมนาคมแห่งชาติ จำกัด (มหาชน) โทร. 0 2591 8042</p></div>
+      </div>
 
     </div>
   );

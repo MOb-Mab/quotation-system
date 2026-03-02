@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import QuotationTable from '../components/quotation/QuotationTable';
 import QuotationPagination from '../components/quotation/QuotationPagination';
-import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
+import ConfirmDeleteModal from '../components/ConfirmModal';
 import { getQuotations, deleteQuotation } from '../services/quotation.service';
 import { FiPlus, FiSearch, FiX, FiChevronDown, FiFilter } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
@@ -78,16 +78,25 @@ export default function QuotationList() {
   const navigate = useNavigate();
   const limit = 10;
 
+  // Debounce: auto-search 400ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const fetchQuotations = useCallback(async (p) => {
     const res = await getQuotations(p, limit, search, statusFilter);
     setQuotations(res.data);
     setTotalPages(Math.max(1, res.totalPages));
   }, [search, statusFilter]);
 
-  useEffect(() => { fetchQuotations(page); }, [page, fetchQuotations]);
-  useEffect(() => { setPage(1); }, [search, statusFilter]);
+  useEffect(() => {
+    fetchQuotations(page);
+  }, [page, search, statusFilter]);
 
-  const handleSearch = (e) => { e.preventDefault(); setSearch(searchInput.trim()); };
   const handleClearSearch = () => { setSearchInput(''); setSearch(''); };
 
   const handleDeleteConfirm = async () => {
@@ -118,14 +127,14 @@ export default function QuotationList() {
       </div>
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <form onSubmit={handleSearch} className="flex flex-1 min-w-[240px] max-w-md">
+        <div className="flex flex-1 min-w-[240px] max-w-md">
           <div className="relative flex-1">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="ค้นหาเลขที่ หรือ ชื่อลูกค้า..."
-              className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-l-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent bg-white"
+              className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent bg-white"
             />
             {searchInput && (
               <button type="button" onClick={handleClearSearch} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -133,10 +142,7 @@ export default function QuotationList() {
               </button>
             )}
           </div>
-          <button type="submit" className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 font-semibold text-sm rounded-r-lg border border-yellow-400">
-            ค้นหา
-          </button>
-        </form>
+        </div>
 
         <div className="h-8 w-px bg-gray-200 hidden sm:block" />
         <StatusDropdown value={statusFilter} onChange={setStatusFilter} />
@@ -163,12 +169,17 @@ export default function QuotationList() {
       />
 
       <QuotationPagination page={page} totalPages={totalPages} onChange={setPage} />
-
       <ConfirmDeleteModal
         open={!!deleteTarget}
-        quotationNumber={deleteTarget?.quotation_number}
-        onCancel={() => setDeleteTarget(null)}
+        onClose={() => setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
+        title="ลบใบเสนอราคา"
+        message={`คุณแน่ใจหรือไม่ว่าต้องการลบใบเสนอราคา ${
+          deleteTarget?.quotation_number || ''
+        } ?`}
+        variant="danger"
+        confirmLabel="ลบ"
+        cancelLabel="ยกเลิก"
       />
     </div>
   );
