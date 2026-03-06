@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getQuotationById } from '../services/quotation.service';
-import { getSettings } from '../services/quotationSettings.service';
 import QuotationDocument from '../components/quotation/QuotationDocument';
 import { FiPrinter, FiDownload, FiEdit, FiArrowLeft, FiSettings, FiX } from 'react-icons/fi';
 import ExcelJS from 'exceljs';
@@ -32,7 +31,6 @@ export default function QuotationPreview() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [quotation, setQuotation] = useState(null);
-  const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // ── Display toggles ──
@@ -47,12 +45,8 @@ export default function QuotationPreview() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [quotationData, settingsData] = await Promise.all([
-        getQuotationById(id),
-        getSettings()
-      ]);
+      const quotationData = await getQuotationById(id);
       setQuotation(quotationData);
-      setSettings(settingsData);
     } catch (error) {
       console.error('Error loading data:', error);
       alert('ไม่สามารถโหลดข้อมูลได้');
@@ -436,7 +430,7 @@ export default function QuotationPreview() {
     );
   }
 
-  if (!quotation || !settings) {
+  if (!quotation) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="text-center">
@@ -507,7 +501,6 @@ export default function QuotationPreview() {
         <div>
           <QuotationDocument
             quotation={quotation}
-            settings={settings}
             showLogo={showLogo}
             showFooter={showFooter}
           />
