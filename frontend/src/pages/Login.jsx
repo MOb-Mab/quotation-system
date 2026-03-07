@@ -20,7 +20,7 @@ export default function Login() {
       const response = await axios.post('http://localhost:5000/api/auth/login', { username, password });
       if (response.data.success) {
         // เก็บ token แทน role ตรงๆ
-        localStorage.setItem('token', response.data.token);
+        sessionStorage.setItem('token', response.data.token);
         navigate('/');
       }
     } catch (err) {

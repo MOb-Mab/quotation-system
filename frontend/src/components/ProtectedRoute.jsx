@@ -4,21 +4,21 @@ import { jwtDecode } from 'jwt-decode';
 
 export default function ProtectedRoute({ children }) {
   try {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) return <Navigate to="/login" replace />;
 
     const decoded = jwtDecode(token);
 
     // token หมดอายุ
     if (decoded.exp * 1000 < Date.now()) {
-      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
       return <Navigate to="/login" replace />;
     }
 
     return children;
   } catch {
     // token invalid หรือถูกแก้
-    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
     return <Navigate to="/login" replace />;
   }
 }
