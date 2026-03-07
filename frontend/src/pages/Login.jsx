@@ -19,8 +19,8 @@ export default function Login() {
     try {
       const response = await axios.post('http://localhost:5000/api/auth/login', { username, password });
       if (response.data.success) {
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('username', response.data.user.username);
+        // เก็บ token แทน role ตรงๆ
+        localStorage.setItem('token', response.data.token);
         navigate('/');
       }
     } catch (err) {
@@ -59,7 +59,6 @@ export default function Login() {
             0 2px 8px rgba(0,0,0,0.04);
         }
 
-        /* Brand row */
         .lg-brand {
           display: flex;
           align-items: center;
@@ -104,7 +103,6 @@ export default function Login() {
           line-height: 1;
         }
 
-        /* Heading */
         .lg-heading {
           font-size: 24px;
           font-weight: 600;
@@ -122,14 +120,12 @@ export default function Login() {
           line-height: 1;
         }
 
-        /* Divider */
         .lg-hdivider {
           height: 1px;
           background: #F0EEE9;
           margin-bottom: 28px;
         }
 
-        /* Fields */
         .lg-field { margin-bottom: 18px; }
 
         .lg-label {
@@ -182,7 +178,6 @@ export default function Login() {
         }
         .lg-eye:hover { color: #6B7280; }
 
-        /* Error */
         .lg-error {
           display: flex;
           align-items: center;
@@ -196,7 +191,6 @@ export default function Login() {
           margin-bottom: 18px;
         }
 
-        /* Submit */
         .lg-btn {
           width: 100%;
           height: 46px;
@@ -227,7 +221,6 @@ export default function Login() {
           cursor: not-allowed;
         }
 
-        /* Spinner */
         .lg-spinner-wrap {
           display: flex; align-items: center; justify-content: center; gap: 8px;
         }
@@ -240,7 +233,6 @@ export default function Login() {
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Footer */
         .lg-footer {
           text-align: center;
           font-size: 11.5px;
@@ -252,7 +244,6 @@ export default function Login() {
       <div className="lg-root">
         <div className="lg-card">
 
-          {/* Brand */}
           <div className="lg-brand">
             <div className="lg-mark">QS</div>
             <div className="lg-brand-text">
@@ -261,12 +252,10 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Heading */}
           <h1 className="lg-heading">ยินดีต้อนรับ</h1>
           <p className="lg-subheading">กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ</p>
           <div className="lg-hdivider" />
 
-          {/* Form */}
           <form onSubmit={handleLogin}>
             <div className="lg-field">
               <label className="lg-label">Username</label>

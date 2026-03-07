@@ -1,3 +1,4 @@
+// frontend/src/components/quotation/QuotationTable.jsx
 import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 
 const STATUS_STYLES = {
@@ -8,7 +9,15 @@ const STATUS_STYLES = {
   'หมดอายุ': 'bg-orange-100 text-orange-700 focus:ring-orange-400',
 };
 
-export default function QuotationTable({ quotations, onView, onEdit, onDelete, onChangeStatus }) {
+export default function QuotationTable({
+  quotations,
+  onView,
+  onEdit,
+  onDelete,
+  onChangeStatus,
+  canEdit = true,
+  canDelete = true,
+}) {
   return (
     <div className="bg-white rounded-xl shadow overflow-x-auto">
       <table className="w-full text-sm">
@@ -39,23 +48,56 @@ export default function QuotationTable({ quotations, onView, onEdit, onDelete, o
                   {q.grand_total?.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <select
-                    value={q.status}
-                    onChange={(e) => onChangeStatus(q._id, e.target.value)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-semibold border border-gray-200 shadow-sm cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 hover:shadow-md ${STATUS_STYLES[q.status] || ''}`}
-                  >
-                    <option value="ร่าง">ร่าง</option>
-                    <option value="ส่งแล้ว">ส่งแล้ว</option>
-                    <option value="อนุมัติ">อนุมัติ</option>
-                    <option value="ปฏิเสธ">ปฏิเสธ</option>
-                    <option value="หมดอายุ">หมดอายุ</option>
-                  </select>
+                  {canEdit ? (
+                    <select
+                      value={q.status}
+                      onChange={(e) => onChangeStatus(q._id, e.target.value)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-semibold border border-gray-200 shadow-sm cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 hover:shadow-md ${STATUS_STYLES[q.status] || ''}`}
+                    >
+                      <option value="ร่าง">ร่าง</option>
+                      <option value="ส่งแล้ว">ส่งแล้ว</option>
+                      <option value="อนุมัติ">อนุมัติ</option>
+                      <option value="ปฏิเสธ">ปฏิเสธ</option>
+                      <option value="หมดอายุ">หมดอายุ</option>
+                    </select>
+                  ) : (
+                    // viewer เห็นแค่ badge อ่านอย่างเดียว
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[q.status] || ''}`}>
+                      {q.status}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-center gap-3">
-                    <button onClick={() => onView(q._id)}   className="text-blue-500 hover:text-blue-700"   title="ดู"><FiEye /></button>
-                    <button onClick={() => onEdit(q._id)}   className="text-yellow-500 hover:text-yellow-700" title="แก้ไข"><FiEdit2 /></button>
-                    <button onClick={() => onDelete(q._id)} className="text-red-500 hover:text-red-700"     title="ลบ"><FiTrash2 /></button>
+                    <button
+                      onClick={() => onView(q._id)}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="ดู"
+                    >
+                      <FiEye />
+                    </button>
+
+                    {/* ซ่อนปุ่มแก้ไขถ้าเป็น viewer */}
+                    {canEdit && (
+                      <button
+                        onClick={() => onEdit(q._id)}
+                        className="text-yellow-500 hover:text-yellow-700"
+                        title="แก้ไข"
+                      >
+                        <FiEdit2 />
+                      </button>
+                    )}
+
+                    {/* ซ่อนปุ่มลบถ้าเป็น viewer */}
+                    {canDelete && (
+                      <button
+                        onClick={() => onDelete(q._id)}
+                        className="text-red-500 hover:text-red-700"
+                        title="ลบ"
+                      >
+                        <FiTrash2 />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

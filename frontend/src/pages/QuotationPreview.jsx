@@ -1,10 +1,12 @@
+// frontend/src/pages/QuotationPreview.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getQuotationById } from '../services/quotation.service';
 import QuotationDocument from '../components/quotation/QuotationDocument';
-import { FiPrinter, FiDownload, FiEdit, FiArrowLeft, FiSettings, FiX } from 'react-icons/fi';
+import { FiDownload, FiEdit, FiArrowLeft, FiSettings, FiX } from 'react-icons/fi';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { useRole } from '../hooks/useRole';
 
 // ── Toggle Switch Component ──
 function ToggleSwitch({ label, checked, onChange }) {
@@ -32,6 +34,7 @@ export default function QuotationPreview() {
   const navigate = useNavigate();
   const [quotation, setQuotation] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { isAdmin } = useRole();
 
   // ── Display toggles ──
   const [showLogo, setShowLogo] = useState(true);
@@ -66,15 +69,11 @@ export default function QuotationPreview() {
     const COMPANY_NAME = 'บริษัท โทรคมนาคมแห่งชาติ จำกัด (มหาชน)';
     const YELLOW = 'FFFBBF24';
     const BLACK  = 'FF000000';
-    const WHITE  = 'FFFFFFFF';
     const GRAY   = 'FFF5F5F5';
 
-    const thin   = { style: 'thin',   color: { argb: BLACK } };
+    const thin   = { style: 'thin', color: { argb: BLACK } };
     const border = { top: thin, bottom: thin, left: thin, right: thin };
-    const borderT = { top: thin };
-    const borderB = { bottom: thin };
 
-    const fmt = (v) => parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 });
     const fmtDate = (d) => d ? new Date(d).toLocaleDateString('th-TH') : '';
     const show = (v) => (v && String(v).trim()) ? v : '..............................';
     const getSellPrice = (item) => {
@@ -468,29 +467,34 @@ export default function QuotationPreview() {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate(`/quotations/edit/${id}`)}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium"
-              >
-                <FiEdit size={18} />
-                <span>แก้ไข</span>
-              </button>
+              {/* ปุ่มทั้งหมด — เฉพาะ admin เท่านั้น */}
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => navigate(`/quotations/edit/${id}`)}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium"
+                  >
+                    <FiEdit size={18} />
+                    <span>แก้ไข</span>
+                  </button>
 
-              <button
-                onClick={handlePrint}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium"
-              >
-                <FiDownload size={18} />
-                <span>PDF</span>
-              </button>
+                  <button
+                    onClick={handlePrint}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium"
+                  >
+                    <FiDownload size={18} />
+                    <span>PDF</span>
+                  </button>
 
-              <button
-                onClick={handleDownloadExcel}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium"
-              >
-                <FiDownload size={18} />
-                <span>Excel</span>
-              </button>
+                  <button
+                    onClick={handleDownloadExcel}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium"
+                  >
+                    <FiDownload size={18} />
+                    <span>Excel</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -507,39 +511,28 @@ export default function QuotationPreview() {
         </div>
       </div>
 
-      {/* FLOATING TOOLBAR — print:hidden */}
-      <div className="fixed bottom-6 right-6 z-50 print:hidden flex flex-col items-end gap-2">
-
-        {/* Panel */}
-        {toolbarOpen && (
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 w-52 flex flex-col gap-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ตั้งค่าการแสดงผล</p>
-            <ToggleSwitch
-              label="โลโก้"
-              checked={showLogo}
-              onChange={setShowLogo}
-            />
-            <ToggleSwitch
-              label="Footer"
-              checked={showFooter}
-              onChange={setShowFooter}
-            />
-          </div>
-        )}
-
-        {/* Toggle Button */}
-        <button
-          onClick={() => setToolbarOpen(o => !o)}
-          className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-colors duration-200 ${
-            toolbarOpen
-              ? 'bg-gray-800 text-white'
-              : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-          }`}
-        >
-          {toolbarOpen ? <FiX size={20} /> : <FiSettings size={20} />}
-        </button>
-      </div>
+      {/* FLOATING TOOLBAR — เฉพาะ admin เท่านั้น */}
+      {isAdmin && (
+        <div className="fixed bottom-6 right-6 z-50 print:hidden flex flex-col items-end gap-2">
+          {toolbarOpen && (
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 w-52 flex flex-col gap-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ตั้งค่าการแสดงผล</p>
+              <ToggleSwitch label="โลโก้" checked={showLogo} onChange={setShowLogo} />
+              <ToggleSwitch label="Footer" checked={showFooter} onChange={setShowFooter} />
+            </div>
+          )}
+          <button
+            onClick={() => setToolbarOpen(o => !o)}
+            className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-colors duration-200 ${
+              toolbarOpen ? 'bg-gray-800 text-white' : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+            }`}
+          >
+            {toolbarOpen ? <FiX size={20} /> : <FiSettings size={20} />}
+          </button>
+        </div>
+      )}
 
     </div>
   );
 }
+

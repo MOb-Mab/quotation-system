@@ -7,6 +7,7 @@ import { getQuotations, deleteQuotation } from '../services/quotation.service';
 import { FiPlus, FiSearch, FiX, FiChevronDown, FiFilter } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import * as quotationService from '../services/quotation.service';
+import { useRole } from '../hooks/useRole';
 
 const STATUS_OPTIONS = [
   { value: '',        label: 'ทุกสถานะ', color: null },
@@ -76,9 +77,9 @@ export default function QuotationList() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const navigate = useNavigate();
+  const { isAdmin } = useRole();
   const limit = 10;
 
-  // Debounce: auto-search 400ms after user stops typing
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput.trim());
@@ -118,12 +119,16 @@ export default function QuotationList() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">ใบเสนอราคา</h1>
-        <button
-          onClick={() => navigate('/quotations/create')}
-          className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-5 py-2.5 rounded-xl shadow transition-colors"
-        >
-          <FiPlus size={18} />สร้างใบเสนอราคา
-        </button>
+
+        {/* ซ่อนปุ่มสร้างถ้าเป็น viewer */}
+        {isAdmin && (
+          <button
+            onClick={() => navigate('/quotations/create')}
+            className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-5 py-2.5 rounded-xl shadow transition-colors"
+          >
+            <FiPlus size={18} />สร้างใบเสนอราคา
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">
@@ -166,6 +171,8 @@ export default function QuotationList() {
         onEdit={(id) => navigate(`/quotations/edit/${id}`)}
         onDelete={(id) => setDeleteTarget(quotations.find((q) => q._id === id))}
         onChangeStatus={handleChangeStatus}
+        canEdit={isAdmin}
+        canDelete={isAdmin}
       />
 
       <QuotationPagination page={page} totalPages={totalPages} onChange={setPage} />

@@ -1,3 +1,4 @@
+// frontend/src/pages/ProductList.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FiPlus, FiSearch, FiEye, FiEdit2, FiTrash2, FiMinus, FiCheck, FiArrowLeft, FiDownload } from 'react-icons/fi';
 import ProductModal from '../components/ProductModal';
@@ -7,6 +8,7 @@ import api from '../services/api';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
+import { useRole } from '../hooks/useRole';
 
 export default function ProductList() {
   const [products, setProducts] = useState([]);
@@ -27,19 +29,14 @@ export default function ProductList() {
 
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAdmin } = useRole();
   const isSelectMode = new URLSearchParams(location.search).get('selectMode') === 'true';
 
-  /* =======================
-     TOAST HELPER
-  ======================= */
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   }, []);
 
-  /* =======================
-     FETCH PRODUCTS
-  ======================= */
   const fetchProducts = async () => {
     try {
       const res = await api.get('/products');
@@ -60,9 +57,6 @@ export default function ProductList() {
     fetchProducts();
   }, []);
 
-  /* =======================
-     SELECT MODE FUNCTIONS
-  ======================= */
   const toggleProductSelection = useCallback((product) => {
     setSelectedProducts(prev => {
       const newSelected = { ...prev };
@@ -125,9 +119,6 @@ export default function ProductList() {
 
   const getTotalSelectedCount = () => Object.keys(selectedProducts).length;
 
-  /* =======================
-     ADD PRODUCT
-  ======================= */
   const handleAddProduct = async (formData) => {
     const data = new FormData();
     data.append('name', formData.name);
@@ -139,9 +130,6 @@ export default function ProductList() {
     await api.post('/products', data);
   };
 
-  /* =======================
-     UPDATE PRODUCT
-  ======================= */
   const handleUpdateProduct = async (formData) => {
     const data = new FormData();
     data.append('name', formData.name);
@@ -153,9 +141,6 @@ export default function ProductList() {
     await api.put(`/products/${formData._id}`, data);
   };
 
-  /* =======================
-     SUBMIT (ADD / EDIT)
-  ======================= */
   const handleSubmitProduct = async (formData) => {
     try {
       if (formData._id) {
@@ -173,9 +158,6 @@ export default function ProductList() {
     }
   };
 
-  /* =======================
-     DELETE
-  ======================= */
   const handleDeleteConfirm = async () => {
     await api.delete(`/products/${productToDelete._id}`);
     await fetchProducts();
@@ -183,9 +165,6 @@ export default function ProductList() {
     setProductToDelete(null);
   };
 
-  /* =======================
-     DOWNLOAD TEMPLATE
-  ======================= */
   const downloadTemplate = async () => {
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet('สินค้า');
@@ -285,9 +264,6 @@ export default function ProductList() {
     URL.revokeObjectURL(url);
   };
 
-  /* =======================
-     IMPORT PRODUCTS
-  ======================= */
   const handleImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -326,7 +302,6 @@ export default function ProductList() {
           }
         });
 
-        // ✅ แยก unique vs duplicate
         const existingNames = products.map(p => p.name.trim().toLowerCase());
         const seenInDoc = [];
         const uniqueProducts    = [];
@@ -345,12 +320,10 @@ export default function ProductList() {
           }
         });
 
-        // ✅ มีของซ้ำ
         if (duplicateProducts.length > 0) {
           const dupCount    = duplicateProducts.length;
           const uniqueCount = uniqueProducts.length;
 
-          // ไม่มีของใหม่เลย — แจ้งแล้วจบ ไม่ต้องถาม
           if (uniqueCount === 0) {
             setAlertModal({
               message: `พบสินค้าซ้ำ ${dupCount} รายการ\n${duplicateProducts.map(p => `• ${p.name}`).join('\n')}\n\nไม่มีสินค้าใหม่ที่จะนำเข้า`,
@@ -359,20 +332,18 @@ export default function ProductList() {
             return;
           }
 
-          // มีของใหม่ด้วย — แจ้งให้รู้แล้วถามยืนยัน
-setConfirmPopup({
-  message: `พบรายการสินค้าซ้ำ ${dupCount} รายการ\n${duplicateProducts.map(p => `• ${p.name}`).join('\n')}\n\nจะนำเข้าเพียง ${uniqueCount} รายการที่ไม่ซ้ำ`,
-  confirmLabel: 'นำเข้า',
-  cancelLabel: 'ยกเลิก',
-  onConfirm: async () => {
-    setConfirmPopup(null);
-    await proceedImport(uniqueProducts, invalidProducts);
-  },
-});
+          setConfirmPopup({
+            message: `พบรายการสินค้าซ้ำ ${dupCount} รายการ\n${duplicateProducts.map(p => `• ${p.name}`).join('\n')}\n\nจะนำเข้าเพียง ${uniqueCount} รายการที่ไม่ซ้ำ`,
+            confirmLabel: 'นำเข้า',
+            cancelLabel: 'ยกเลิก',
+            onConfirm: async () => {
+              setConfirmPopup(null);
+              await proceedImport(uniqueProducts, invalidProducts);
+            },
+          });
           return;
         }
 
-        // ไม่มีของซ้ำเลย — นำเข้าได้ทันที
         await proceedImport(validProducts, invalidProducts);
 
       } catch (err) {
@@ -384,7 +355,6 @@ setConfirmPopup({
     e.target.value = '';
   };
 
-  // ✅ เช็ค invalidProducts ก่อน processImport
   const proceedImport = async (validProducts, invalidProducts = []) => {
     if (invalidProducts.length > 0) {
       setImportWarning({ validProducts, invalidProducts });
@@ -405,16 +375,10 @@ setConfirmPopup({
     }
   };
 
-  /* =======================
-     SEARCH FILTER
-  ======================= */
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  /* =======================
-     BULK DELETE FUNCTIONS
-  ======================= */
   const toggleBulkSelect = (productId) => {
     setBulkSelected(prev => {
       const next = { ...prev };
@@ -456,9 +420,6 @@ setConfirmPopup({
     });
   };
 
-  /* =======================
-     RENDER
-  ======================= */
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
 
@@ -468,10 +429,7 @@ setConfirmPopup({
           flex items-center gap-2 transition-all duration-300
           ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}
         >
-          {toast.type === 'success'
-            ? <FiCheck size={18} />
-            : <span className="font-bold">!</span>
-          }
+          {toast.type === 'success' ? <FiCheck size={18} /> : <span className="font-bold">!</span>}
           {toast.message}
         </div>
       )}
@@ -489,7 +447,8 @@ setConfirmPopup({
           </h1>
         </div>
 
-        {!isSelectMode && (
+        {/* ซ่อนปุ่ม admin-only ถ้าเป็น viewer */}
+        {!isSelectMode && isAdmin && (
           <div className="flex gap-3">
             {bulkDeleteMode ? (
               <>
@@ -519,8 +478,7 @@ setConfirmPopup({
                   onClick={downloadTemplate}
                   className="bg-white border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg flex items-center gap-2 font-semibold text-gray-700"
                 >
-                  <FiDownload size={16} />
-                  ดาวน์โหลด Template
+                  <FiDownload size={16} />ดาวน์โหลด Template
                 </button>
                 <label className="bg-white border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg flex items-center gap-2 font-semibold cursor-pointer">
                   <FiPlus />นำเข้าข้อมูล
@@ -599,9 +557,7 @@ setConfirmPopup({
                 {bulkDeleteMode && (
                   <div className="absolute top-2 left-2 z-10">
                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                      bulkSelected[product._id]
-                        ? 'bg-red-500 border-red-500'
-                        : 'bg-white border-gray-300'
+                      bulkSelected[product._id] ? 'bg-red-500 border-red-500' : 'bg-white border-gray-300'
                     }`}>
                       {bulkSelected[product._id] && <FiCheck size={14} className="text-white" />}
                     </div>
@@ -672,7 +628,7 @@ setConfirmPopup({
                     </div>
                   )}
 
-                  {/* Normal Mode: Action Buttons */}
+                  {/* Normal Mode: Action Buttons — ซ่อนปุ่ม edit ถ้า viewer */}
                   {!isSelectMode && !bulkDeleteMode && (
                     <div className="flex gap-2 mt-3">
                       <button
@@ -681,12 +637,16 @@ setConfirmPopup({
                       >
                         <FiEye size={16} /><span className="text-sm">ดู</span>
                       </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setOpenModal(true); }}
-                        className="flex-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 px-3 py-2 rounded-lg flex items-center justify-center gap-1"
-                      >
-                        <FiEdit2 size={16} /><span className="text-sm">แก้ไข</span>
-                      </button>
+
+                      {/* ซ่อนปุ่มแก้ไขถ้าเป็น viewer */}
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setOpenModal(true); }}
+                          className="flex-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 px-3 py-2 rounded-lg flex items-center justify-center gap-1"
+                        >
+                          <FiEdit2 size={16} /><span className="text-sm">แก้ไข</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -756,9 +716,7 @@ setConfirmPopup({
             <button
               onClick={() => setAlertModal(null)}
               className={`px-8 py-2 rounded-lg font-semibold text-white ${
-                alertModal.type === 'success'
-                  ? 'bg-green-500 hover:bg-green-600'
-                  : 'bg-red-500 hover:bg-red-600'
+                alertModal.type === 'success' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
               }`}
             >
               ตกลง
