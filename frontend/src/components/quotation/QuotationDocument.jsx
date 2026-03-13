@@ -47,7 +47,7 @@ export default function QuotationDocument({ quotation, showLogo = true, showFoot
     { label: `ส่วนลด ${displayDiscountPercent}`, value: displayDiscount },
     { label: 'ราคาหลังหักส่วนลด', value: formatCurrency(subtotalAfterDiscount), nowrap: true },
     { label: `ภาษีมูลค่าเพิ่ม ${vat_percent}%`, value: formatCurrency(vat) },
-    { label: 'รวมเป็นเงินทั้งสิ้น', value: formatCurrency(grand_total), bold: true },
+    { label: 'รวมเป็นเงินทั้งสิ้น', value: formatCurrency(grand_total) },
   ];
 
   // row 0 = "หมายเหตุ" header, row 1..n = noteLines

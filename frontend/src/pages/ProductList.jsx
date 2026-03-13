@@ -150,7 +150,7 @@ export default function ProductList() {
       }
       setOpenModal(false);
       setSelectedProduct(null);
-      showToast(formData._id ? 'แก้ไขสินค้าสำเร็จ ✓' : 'เพิ่มสินค้าสำเร็จ ✓', 'success');
+      showToast(formData._id ? 'แก้ไขสินค้าสำเร็จ' : 'เพิ่มสินค้าสำเร็จ', 'success');
       fetchProducts();
     } catch (err) {
       console.error('❌ Submit failed:', err);
