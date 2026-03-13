@@ -5,7 +5,7 @@ import { FiArrowLeft, FiPlus, FiTrash2, FiPackage, FiChevronDown, FiX } from 're
 import { useNavigate, useParams } from 'react-router-dom';
 import { createQuotation, getQuotationById, updateQuotation } from '../services/quotation.service';
 import productService from '../services/product.service';
-import SuccessPopup from '../components/SuccessPopup';
+import SuccessPopup from '../components/common/SuccessPopup';
 
 const Field = ({ label, children, className = '', required = false }) => (
   <div className={`flex flex-col gap-1 ${className}`}>
@@ -114,7 +114,7 @@ const ProductCombobox = ({ value, onChange, onSelectProduct, products }) => {
       ) : (
         filtered.map((p, i) => (
           <li
-            key={p.id ?? i}
+            key={p._id ?? p.id ?? i}
             onMouseDown={() => handleSelect(p)}
             onMouseEnter={() => setHighlighted(i)}
             className={`px-3 py-2 cursor-pointer flex justify-between items-center ${
@@ -199,11 +199,11 @@ export default function QuotationCreate() {
     status: 'ร่าง'
   });
 
+  // ─── Load products ────────────────────────────────────────────────────────
   useEffect(() => {
     const loadProducts = async () => {
       try {
         const data = await productService.getAllProducts();
-        console.log('📦 Products loaded sample:', data[0]);
         setProducts(data);
       } catch (err) {
         console.error('Load products error:', err);
@@ -212,82 +212,20 @@ export default function QuotationCreate() {
     loadProducts();
   }, []);
 
-  useEffect(() => {
-    if (hasLoadedRef.current) return;
-    const savedForm = sessionStorage.getItem('quotationFormData');
-    if (savedForm) {
-      try {
-        const parsedData = JSON.parse(savedForm);
-        setFormData(parsedData);
-        sessionStorage.removeItem('quotationFormData');
-        hasLoadedRef.current = true;
-        return;
-      } catch (err) {
-        console.error('Restore error:', err);
-      }
-    }
-    if (isEditMode) {
-      loadQuotation();
-    }
-    // ✅ ลบการ generate auto
-    hasLoadedRef.current = true;
-  }, [id]);
-
-  useEffect(() => {
-    const stored = sessionStorage.getItem('selectedProducts');
-    if (!stored) return;
-    if (hasAppliedSelectedProducts.current) return;
-    try {
-      const newProducts = JSON.parse(stored);
-      if (Array.isArray(newProducts) && newProducts.length > 0) {
-        setFormData(prev => {
-          const mergedItems = [...prev.items];
-          newProducts.forEach(newItem => {
-            const existingIndex = mergedItems.findIndex(
-              item => item.name === newItem.name && item.cost === newItem.cost
-            );
-            if (existingIndex !== -1) {
-              const existing = mergedItems[existingIndex];
-              const newQuantity = existing.quantity + newItem.quantity;
-              const cost = existing.cost;
-              const margin = existing.margin;
-              const priceWithMargin = cost + (cost * margin / 100);
-              mergedItems[existingIndex] = { ...existing, quantity: newQuantity, total: priceWithMargin * newQuantity };
-            } else {
-              mergedItems.push(newItem);
-            }
-          });
-          return { ...prev, items: mergedItems };
-        });
-      }
-      hasAppliedSelectedProducts.current = true;
-      sessionStorage.removeItem('selectedProducts');
-    } catch (err) {
-      console.error('Error parsing selectedProducts:', err);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (formData.issue_date && formData.validity_days) {
-      const issueDate = new Date(formData.issue_date);
-      const expiryDate = new Date(issueDate);
-      expiryDate.setDate(expiryDate.getDate() + parseInt(formData.validity_days || 0));
-      setFormData(prev => ({ ...prev, expiry_date: expiryDate.toISOString().split('T')[0] }));
-    }
-  }, [formData.issue_date, formData.validity_days]);
-
-  const loadQuotation = async () => {
+  // ─── FIX #1: loadQuotation defined BEFORE the useEffect that calls it ─────
+  const loadQuotation = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getQuotationById(id);
       const mappedItems = (data.items || []).map(item => ({
+        // ─── FIX #4: assign stable id to each item ───────────────────────
+        id: crypto.randomUUID(),
         name: item.name || '',
-        category: item.category || '',
         unit: item.unit || 'ชิ้น',
         cost: parseFloat(item.cost) || 0,
         quantity: parseFloat(item.quantity) || 1,
         margin: parseFloat(item.margin) || 0,
-        total: parseFloat(item.total) || 0
+        total: parseFloat(item.total) || 0,
       }));
       setFormData({
         quotation_number: data.quotation_number,
@@ -308,7 +246,7 @@ export default function QuotationCreate() {
 ลูกค้าชำระได้ทั้งเงินสดและเช็ค
 ใบเสนอราคานี้มีกำหนด 30 วัน นับจากวันเสนอราคา
 ดำเนินการติดตั้งภายใน 60 วัน หลังจากได้รับการยืนยันการใช้บริการ`,
-        status: data.status || 'ร่าง'
+        status: data.status || 'ร่าง',
       });
     } catch (err) {
       console.error('Load quotation error:', err);
@@ -317,17 +255,105 @@ export default function QuotationCreate() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
+  // ─── Restore from sessionStorage or load edit data ───────────────────────
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    const savedForm = sessionStorage.getItem('quotationFormData');
+    if (savedForm) {
+      try {
+        const parsedData = JSON.parse(savedForm);
+        const restoredItems = (parsedData.items || []).map(item => ({
+          ...item,
+          id: item.id || crypto.randomUUID(),
+        }));
+        setFormData({ ...parsedData, items: restoredItems });
+        sessionStorage.removeItem('quotationFormData');
+        hasLoadedRef.current = true;
+        return;
+      } catch (err) {
+        console.error('Restore error:', err);
+      }
+    }
+    if (isEditMode) {
+      loadQuotation();
+    }
+    hasLoadedRef.current = true;
+  }, [id, isEditMode, loadQuotation]);
+
+  // ─── Merge products selected from catalog ────────────────────────────────
+  useEffect(() => {
+    const stored = sessionStorage.getItem('selectedProducts');
+    if (!stored) return;
+    if (hasAppliedSelectedProducts.current) return;
+    try {
+      const newProducts = JSON.parse(stored);
+      if (Array.isArray(newProducts) && newProducts.length > 0) {
+        setFormData(prev => {
+          const mergedItems = [...prev.items];
+          newProducts.forEach(newItem => {
+            const existingIndex = mergedItems.findIndex(
+              item => item.name === newItem.name && item.cost === newItem.cost
+            );
+            if (existingIndex !== -1) {
+              const existing = mergedItems[existingIndex];
+              const newQuantity = existing.quantity + newItem.quantity;
+              const cost = existing.cost;
+              const margin = existing.margin;
+              const priceWithMargin = cost + (cost * margin / 100);
+              mergedItems[existingIndex] = {
+                ...existing,
+                quantity: newQuantity,
+                total: priceWithMargin * newQuantity,
+              };
+            } else {
+              mergedItems.push({ ...newItem, id: crypto.randomUUID() });
+            }
+          });
+          return { ...prev, items: mergedItems };
+        });
+      }
+      hasAppliedSelectedProducts.current = true;
+      sessionStorage.removeItem('selectedProducts');
+    } catch (err) {
+      console.error('Error parsing selectedProducts:', err);
+    }
+  }, []);
+
+  // ─── FIX #3: only recalculate expiry when user actually changes the fields
+  //             not when loadQuotation sets expiry_date directly ─────────────
+  const prevIssueDate = useRef('');
+  const prevValidityDays = useRef('');
+  useEffect(() => {
+    const issueChanged = formData.issue_date !== prevIssueDate.current;
+    const validityChanged = formData.validity_days !== prevValidityDays.current;
+    prevIssueDate.current = formData.issue_date;
+    prevValidityDays.current = formData.validity_days;
+
+    if (!issueChanged && !validityChanged) return;
+    if (formData.issue_date && formData.validity_days) {
+      const issueDate = new Date(formData.issue_date);
+      const expiryDate = new Date(issueDate);
+      expiryDate.setDate(expiryDate.getDate() + parseInt(formData.validity_days || 0));
+      setFormData(prev => ({ ...prev, expiry_date: expiryDate.toISOString().split('T')[0] }));
+    }
+  }, [formData.issue_date, formData.validity_days]);
+
+  // ─── Handlers ─────────────────────────────────────────────────────────────
   const handleGoToProductSelection = () => {
     sessionStorage.setItem('quotationFormData', JSON.stringify(formData));
     navigate('/products?selectMode=true');
   };
 
+  // ─── FIX #4: assign stable id on new empty row ───────────────────────────
   const addEmptyRow = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { name: '', category: '', unit: 'ชิ้น', cost: 0, quantity: 1, margin: 0, total: 0 }]
+      items: [
+        ...prev.items,
+        { id: crypto.randomUUID(), name: '', unit: 'ชิ้น', cost: 0, quantity: 1, margin: 0, total: 0 },
+      ],
     }));
   };
 
@@ -351,27 +377,21 @@ export default function QuotationCreate() {
   }, []);
 
   const handleSelectProduct = useCallback((index, product) => {
-    console.log('🛒 Selected product full object:', product);
-
     const cost = parseFloat(
       product.cost ?? product.price ?? product.unit_price ??
       product.selling_price ?? product.cost_price ?? 0
     ) || 0;
-
     const unit = product.unit || product.unit_name || product.uom || 'ชิ้น';
-    const category = product.category || product.category_name || '';
-
     setFormData(prev => {
       const newItems = [...prev.items];
       const quantity = newItems[index].quantity || 1;
       newItems[index] = {
         ...newItems[index],
         name: product.name || product.product_name || '',
-        category,
         unit,
         cost,
         margin: 0,
-        total: cost * quantity
+        total: cost * quantity,
       };
       return { ...prev, items: newItems };
     });
@@ -388,13 +408,17 @@ export default function QuotationCreate() {
     const discountAmount = subTotal * (parseFloat(formData.discount_percent) || 0) / 100;
     const afterDiscount = subTotal - discountAmount;
     const vatAmount = afterDiscount * VAT_PERCENT / 100;
-    return { sub_total: subTotal, discount: discountAmount, after_discount: afterDiscount, vat: vatAmount, grand_total: afterDiscount + vatAmount };
+    return {
+      sub_total: subTotal,
+      discount: discountAmount,
+      after_discount: afterDiscount,
+      vat: vatAmount,
+      grand_total: afterDiscount + vatAmount,
+    };
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // ✅ validation
     if (!formData.quotation_number?.trim()) {
       alert('กรุณากรอกเลขที่ใบเสนอราคา');
       return;
@@ -407,12 +431,16 @@ export default function QuotationCreate() {
       alert('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ');
       return;
     }
-
     try {
       setLoading(true);
       const totals = calculateTotals();
+
+      // ─── FIX #2: strip discount_percent & item.id before sending ─────────
+      const { discount_percent, ...restForm } = formData;
+      const cleanItems = formData.items.map(({ id: _id, ...item }) => item);
       const quotationData = {
-        ...formData,
+        ...restForm,
+        items: cleanItems,
         issue_date: formData.issue_date || null,
         validity_days: formData.validity_days || null,
         expiry_date: formData.expiry_date || null,
@@ -420,8 +448,9 @@ export default function QuotationCreate() {
         discount: totals.discount,
         vat: totals.vat,
         grand_total: totals.grand_total,
-        created_by: 'admin'
+        created_by: 'admin',
       };
+
       if (isEditMode) {
         await updateQuotation(id, quotationData);
         setSuccessMessage('แก้ไขใบเสนอราคาสำเร็จ!');
@@ -469,7 +498,11 @@ export default function QuotationCreate() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <SuccessPopup open={showSuccess} message={successMessage} onClose={() => { setShowSuccess(false); navigate('/quotations'); }} />
+      <SuccessPopup
+        open={showSuccess}
+        message={successMessage}
+        onClose={() => { setShowSuccess(false); navigate('/quotations'); }}
+      />
 
       <div className="flex items-center gap-2 text-gray-600 cursor-pointer hover:text-gray-900" onClick={() => navigate(-1)}>
         <FiArrowLeft /><span>กลับ</span>
@@ -485,9 +518,9 @@ export default function QuotationCreate() {
           <h2 className="font-semibold mb-4">ข้อมูลใบเสนอราคา</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Field label="เลขที่ใบเสนอราคา" required>
-              <input 
-                className="input" 
-                value={formData.quotation_number} 
+              <input
+                className="input"
+                value={formData.quotation_number}
                 onChange={handleInputChange('quotation_number')}
                 placeholder="เช่น N0000001/2568"
                 required
@@ -587,7 +620,8 @@ export default function QuotationCreate() {
                   formData.items.map((item, index) => {
                     const sellPrice = getSellPrice(item);
                     return (
-                      <tr key={index} className="hover:bg-gray-50">
+                      // ─── FIX #4: use stable item.id as key ───────────────
+                      <tr key={item.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 border text-center">{index + 1}</td>
                         <td className="px-3 py-2 border min-w-[220px]">
                           <ProductCombobox

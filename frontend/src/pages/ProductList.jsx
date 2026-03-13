@@ -1,9 +1,9 @@
 // frontend/src/pages/ProductList.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FiPlus, FiSearch, FiEye, FiEdit2, FiTrash2, FiMinus, FiCheck, FiArrowLeft, FiDownload } from 'react-icons/fi';
-import ProductModal from '../components/ProductModal';
-import ProductViewModal from '../components/ProductViewModal';
-import ConfirmModal from '../components/ConfirmModal';
+import ProductModal from '../components/product/ProductModal';
+import ProductViewModal from '../components/product/ProductViewModal';
+import ConfirmModal from '../components/common/ConfirmModal';
 import api from '../services/api';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ExcelJS from 'exceljs';

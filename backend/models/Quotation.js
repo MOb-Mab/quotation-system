@@ -4,7 +4,6 @@ const mongoose = require('mongoose');
 const QuotationItemSchema = new mongoose.Schema(
   {
     name:     { type: String, required: true },
-    category: { type: String },
     unit:     { type: String, default: 'ชิ้น' },
     cost:     { type: Number, required: true },
     quantity: { type: Number, required: true },

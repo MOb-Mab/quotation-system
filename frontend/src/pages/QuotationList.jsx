@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import QuotationTable from '../components/quotation/QuotationTable';
 import QuotationPagination from '../components/quotation/QuotationPagination';
-import ConfirmDeleteModal from '../components/ConfirmModal';
+import ConfirmDeleteModal from '../components/common/ConfirmModal';
 import { getQuotations, deleteQuotation } from '../services/quotation.service';
 import { FiPlus, FiSearch, FiX, FiChevronDown, FiFilter } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
