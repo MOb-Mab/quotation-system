@@ -47,7 +47,7 @@ export default function QuotationDocument({ quotation, showLogo = true, showFoot
     { label: `ส่วนลด ${displayDiscountPercent}`, value: displayDiscount },
     { label: 'ราคาหลังหักส่วนลด', value: formatCurrency(subtotalAfterDiscount), nowrap: true },
     { label: `ภาษีมูลค่าเพิ่ม ${vat_percent}%`, value: formatCurrency(vat) },
-    { label: 'รวมเป็นเงินทั้งสิ้น', value: formatCurrency(grand_total) },
+    { label: 'รวมเป็นเงินทั้งสิ้น', value: formatCurrency(grand_total), bold: true },
   ];
 
   // row 0 = "หมายเหตุ" header, row 1..n = noteLines
@@ -271,21 +271,19 @@ export default function QuotationDocument({ quotation, showLogo = true, showFoot
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer + NT001 */}
       {showFooter && (
         <div className="mt-4">
           <img src={FOOTER_PATH} alt="NT Footer" className="w-full" />
+          <div
+            style={{ fontFamily: '"Kanit", sans-serif' }}
+            className="grid grid-cols-2 gap-1 px-3 mt-1 text-[9px] text-gray-700"
+          >
+            <div><p className="leading-none">NT001 รหัสพัสดุ 10065112 กระดาษจดหมาย (ใช้ภายนอก) หน่วยนับ BK.</p></div>
+            <div className="text-right"><p className="leading-none">พิมพ์ที่ : ศูนย์บริการสั่งพิมพ์ บริษัท โทรคมนาคมแห่งชาติ จำกัด (มหาชน) โทร. 0 2591 8042</p></div>
+          </div>
         </div>
       )}
-
-      {/* NT001 */}
-      <div
-        style={{ fontFamily: '"Kanit", sans-serif' }}
-        className="grid grid-cols-2 gap-1 px-3 mt-1 text-[9px] text-gray-700"
-      >
-        <div><p className="leading-none">NT001 รหัสพัสดุ 10065112 กระดาษจดหมาย (ใช้ภายนอก) หน่วยนับ BK.</p></div>
-        <div className="text-right"><p className="leading-none">พิมพ์ที่ : ศูนย์บริการสั่งพิมพ์ บริษัท โทรคมนาคมแห่งชาติ จำกัด (มหาชน) โทร. 0 2591 8042</p></div>
-      </div>
 
     </div>
   );
