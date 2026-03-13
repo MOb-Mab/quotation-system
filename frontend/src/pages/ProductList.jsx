@@ -1,6 +1,6 @@
 // frontend/src/pages/ProductList.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FiPlus, FiSearch, FiEye, FiEdit2, FiTrash2, FiMinus, FiCheck, FiArrowLeft, FiDownload } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiEye, FiEdit2, FiTrash2, FiMinus, FiCheck, FiArrowLeft, FiDownload, FiX } from 'react-icons/fi';
 import ProductModal from '../components/product/ProductModal';
 import ProductViewModal from '../components/product/ProductViewModal';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -522,16 +522,23 @@ export default function ProductList() {
 
       {/* Search */}
       <div className="flex gap-4 mb-6">
-        <div className="flex-1 relative">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="ค้นหาสินค้า..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-yellow-400"
-          />
-        </div>
-      </div>
+  <div className="flex flex-1 min-w-[240px] max-w-md">
+    <div className="relative flex-1">
+      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="ค้นหาสินค้า..."
+        className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent bg-white"
+      />
+      {search && (
+        <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+          <FiX size={13} />
+        </button>
+      )}
+    </div>
+  </div>
+</div>
 
       {/* Product List */}
       {filteredProducts.length === 0 ? (

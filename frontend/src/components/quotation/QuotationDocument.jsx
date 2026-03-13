@@ -13,24 +13,19 @@ export default function QuotationDocument({ quotation, showLogo = true, showFoot
     vat = 0, vat_percent = 7, grand_total = 0, note,
   } = quotation || {};
 
-  // ✅ ไม่ slice แล้ว — รับได้ไม่จำกัดบรรทัด
-  const noteLines = note && note.trim() !== '' ? note.split('\n') : ['-'];
-  while (noteLines.length < 4) noteLines.push('');
-
-  // 4 บรรทัดแรกใช้คู่กับ summary rows, ส่วนที่เกินจะ render เป็น extra rows
-  const extraNoteLines = noteLines.slice(4);
-
-  const subtotalAfterDiscount = sub_total - (discount || 0);
-
-  const displayDiscountPercent = discount_percent && discount_percent > 0 ? `${discount_percent}%` : '.....%';
-  const displayDiscount = discount && discount > 0 ? formatCurrency(discount) : '-';
-
   const formatCurrency = (value) => {
     return parseFloat(value || 0).toLocaleString('th-TH', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
   };
+
+  const noteLines = note && note.trim() !== '' ? note.split('\n') : [];
+
+  const subtotalAfterDiscount = sub_total - (discount || 0);
+
+  const displayDiscountPercent = discount_percent && discount_percent > 0 ? `${discount_percent}%` : '.....%';
+  const displayDiscount = discount && discount > 0 ? formatCurrency(discount) : '-';
 
   const getSellPrice = (item) => {
     const cost = parseFloat(item.cost) || 0;
@@ -47,10 +42,23 @@ export default function QuotationDocument({ quotation, showLogo = true, showFoot
     return value && value.toString().trim() !== '' ? value : '......................................';
   };
 
+  const summaryItems = [
+    { label: 'รวมเงิน', value: formatCurrency(sub_total) },
+    { label: `ส่วนลด ${displayDiscountPercent}`, value: displayDiscount },
+    { label: 'ราคาหลังหักส่วนลด', value: formatCurrency(subtotalAfterDiscount), nowrap: true },
+    { label: `ภาษีมูลค่าเพิ่ม ${vat_percent}%`, value: formatCurrency(vat) },
+    { label: 'รวมเป็นเงินทั้งสิ้น', value: formatCurrency(grand_total) },
+  ];
+
+  // row 0 = "หมายเหตุ" header, row 1..n = noteLines
+  // totalRows must be at least 1 (header) + 4 (to align with 5 summary rows bottom-anchored)
+  const totalRows = Math.max(noteLines.length, 4) + 1;
+  const summaryStartRow = totalRows - 5;
+
   return (
     <div className="pdf-content bg-white w-[210mm] mx-auto shadow-lg print:shadow-none p-4 print:px-6 print:pt-6 print:pb-4">
 
-      {/* HEADER — logo หรือ spacer เพื่อป้องกันชิดขอบบน */}
+      {/* HEADER */}
       {showLogo ? (
         <div className="flex items-start justify-between mb-1">
           <img src={LOGO_PATH} alt="NT logo" className="h-12 print:h-10" />
@@ -59,7 +67,7 @@ export default function QuotationDocument({ quotation, showLogo = true, showFoot
         <div className="mb-3 print:mb-6" />
       )}
 
-      {/* COMPANY NAME — อยู่เหนือ border box */}
+      {/* COMPANY NAME */}
       <div className="text-center py-1">
         <h1 className="text-xs font-bold print:text-[11px]">{COMPANY_NAME}</h1>
       </div>
@@ -186,47 +194,44 @@ export default function QuotationDocument({ quotation, showLogo = true, showFoot
                 </tr>
               ))}
 
-              {/* Summary rows — noteLines[0..3] คู่กับ summary ตามปกติ */}
-              <tr>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-xs"><span className="font-semibold">หมายเหตุ</span></td>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-right text-xs">รวมเงิน</td>
-                <td className="border-b border-r border-black p-2"></td>
-                <td className="border-b border-black p-2 text-right text-xs">{formatCurrency(sub_total)}</td>
-              </tr>
-              <tr>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-xs">{noteLines[0]}</td>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-right text-xs">ส่วนลด {displayDiscountPercent}</td>
-                <td className="border-b border-r border-black p-2"></td>
-                <td className="border-b border-black p-2 text-right text-xs">{displayDiscount}</td>
-              </tr>
-              <tr>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-xs">{noteLines[1]}</td>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-right text-xs whitespace-nowrap">
-                  ราคาหลังหักส่วนลด
-                </td>
-                <td className="border-b border-r border-black p-2"></td>
-                <td className="border-b border-black p-2 text-right text-xs">{formatCurrency(subtotalAfterDiscount)}</td>
-              </tr>
-              <tr>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-xs">{noteLines[2]}</td>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-right text-xs">ภาษีมูลค่าเพิ่ม {vat_percent}%</td>
-                <td className="border-b border-r border-black p-2"></td>
-                <td className="border-b border-black p-2 text-right text-xs">{formatCurrency(vat)}</td>
-              </tr>
-              <tr>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-xs">{noteLines[3]}</td>
-                <td colSpan="2" className="border-b border-r border-black p-2 text-right text-xs">รวมเป็นเงินทั้งสิ้น</td>
-                <td className="border-b border-r border-black p-2"></td>
-                <td className="border-b border-black p-2 text-right text-xs">{formatCurrency(grand_total)}</td>
-              </tr>
+              {/* Dynamic summary rows — notes on left, summary anchored to bottom-right */}
+              {Array.from({ length: totalRows }, (_, rowIdx) => {
+                const leftContent = rowIdx === 0
+                  ? <span className="font-semibold">หมายเหตุ</span>
+                  : (noteLines[rowIdx - 1] ?? '');
 
-              {/* ✅ Extra rows สำหรับ noteLines ที่เกิน 4 บรรทัด */}
-              {/* ✅ Extra rows สำหรับ noteLines ที่เกิน 4 บรรทัด */}
-              {extraNoteLines.map((line, i) => (
-                <tr key={`extra-note-${i}`}>
-                  <td colSpan="6" className="border-b border-black px-2 py-1 text-xs">{line}</td>
-                </tr>
-              ))}
+                const summaryIdx = rowIdx - summaryStartRow;
+                const summary = summaryIdx >= 0 && summaryIdx < summaryItems.length
+                  ? summaryItems[summaryIdx]
+                  : null;
+
+                return (
+                  <tr key={`sr-${rowIdx}`}>
+                    <td colSpan="2" className="border-b border-r border-black p-2 text-xs">
+                      {leftContent}
+                    </td>
+                    {summary ? (
+                      <>
+                        <td colSpan="2" className={`border-b border-r border-black p-2 text-right text-xs ${summary.nowrap ? 'whitespace-nowrap' : ''}`}>
+                          {summary.label}
+                        </td>
+                        <td className="border-b border-r border-black p-2" />
+                        <td className={`border-b border-black p-2 text-right text-xs ${summary.bold ? 'font-bold' : ''}`}>
+                          {summary.value}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="border-b border-r border-black p-2" />
+                        <td className="border-b border-r border-black p-2" />
+                        <td className="border-b border-r border-black p-2" />
+                        <td className="border-b border-black p-2" />
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
+
             </tbody>
           </table>
         </div>
@@ -266,14 +271,14 @@ export default function QuotationDocument({ quotation, showLogo = true, showFoot
         </div>
       </div>
 
-      {/* Footer.png — toggle ได้ */}
+      {/* Footer */}
       {showFooter && (
         <div className="mt-4">
           <img src={FOOTER_PATH} alt="NT Footer" className="w-full" />
         </div>
       )}
 
-      {/* ข้อความ NT001 — แสดงเสมอ */}
+      {/* NT001 */}
       <div
         style={{ fontFamily: '"Kanit", sans-serif' }}
         className="grid grid-cols-2 gap-1 px-3 mt-1 text-[9px] text-gray-700"

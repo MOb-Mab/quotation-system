@@ -419,14 +419,6 @@ export default function QuotationCreate() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.quotation_number?.trim()) {
-      alert('กรุณากรอกเลขที่ใบเสนอราคา');
-      return;
-    }
-    if (!formData.customer_name) {
-      alert('กรุณากรอกชื่อลูกค้า');
-      return;
-    }
     if (formData.items.length === 0) {
       alert('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ');
       return;
