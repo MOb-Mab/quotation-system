@@ -630,10 +630,10 @@ export default function QuotationCreate() {
                           <input type="text" className="w-full px-2 py-1 border rounded text-center" value={item.unit} onChange={(e) => updateItem(index, 'unit', e.target.value)} />
                         </td>
                         <td className="px-4 py-2 border">
-                          <input type="number" className="w-full px-2 py-1 border rounded text-center" value={item.cost} onChange={(e) => updateItem(index, 'cost', e.target.value)} min="0" step="0.01" onKeyDown={preventNonNumeric} />
+                          <input type="number" className="w-full px-2 py-1 border rounded text-center" value={item.cost} onChange={(e) => updateItem(index, 'cost', e.target.value)} onFocus={(e) => e.target.select()} min="0" step="0.01" onKeyDown={preventNonNumeric} />
                         </td>
                         <td className="px-4 py-2 border">
-                          <input type="number" className="w-full px-2 py-1 border rounded text-center" value={item.margin} onChange={(e) => updateItem(index, 'margin', e.target.value)} min="0" onKeyDown={preventNonNumeric} />
+                          <input type="number" className="w-full px-2 py-1 border rounded text-center" value={item.margin} onChange={(e) => updateItem(index, 'margin', e.target.value)} onFocus={(e) => e.target.select()} min="0" onKeyDown={preventNonNumeric} />
                         </td>
                         <td className="px-4 py-2 border text-center">
                           {sellPrice.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
