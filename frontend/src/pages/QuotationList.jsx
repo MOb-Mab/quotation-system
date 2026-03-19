@@ -4,7 +4,7 @@ import QuotationTable from '../components/quotation/QuotationTable';
 import QuotationPagination from '../components/quotation/QuotationPagination';
 import ConfirmDeleteModal from '../components/common/ConfirmModal';
 import { getQuotations, deleteQuotation } from '../services/quotation.service';
-import { FiPlus, FiSearch, FiX, FiChevronDown, FiFilter } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiX, FiChevronDown, FiFilter, FiTrash2, FiCheck } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import * as quotationService from '../services/quotation.service';
 import { useRole } from '../hooks/useRole';
@@ -76,6 +76,11 @@ export default function QuotationList() {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  // ── Bulk delete state ─────────────────────────────────────────────────────
+  const [bulkDeleteMode, setBulkDeleteMode] = useState(false);
+  const [bulkSelected, setBulkSelected]     = useState({});
+  const [confirmBulk, setConfirmBulk]       = useState(false);
+
   const navigate = useNavigate();
   const { isAdmin } = useRole();
   const limit = 10;
@@ -100,6 +105,7 @@ export default function QuotationList() {
 
   const handleClearSearch = () => { setSearchInput(''); setSearch(''); };
 
+  // ── Single delete ─────────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
     await deleteQuotation(deleteTarget._id);
     setDeleteTarget(null);
@@ -113,6 +119,45 @@ export default function QuotationList() {
     } catch (err) { console.error(err); }
   };
 
+  // ── Bulk delete helpers ───────────────────────────────────────────────────
+  const toggleBulkSelect = (id) => {
+    setBulkSelected(prev => {
+      const next = { ...prev };
+      if (next[id]) delete next[id];
+      else next[id] = true;
+      return next;
+    });
+  };
+
+  const isAllSelected = quotations.length > 0 && quotations.every(q => bulkSelected[q._id]);
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setBulkSelected({});
+    } else {
+      const all = {};
+      quotations.forEach(q => { all[q._id] = true; });
+      setBulkSelected(all);
+    }
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    const ids = Object.keys(bulkSelected);
+    for (const id of ids) {
+      await deleteQuotation(id);
+    }
+    setBulkSelected({});
+    setBulkDeleteMode(false);
+    setConfirmBulk(false);
+    fetchQuotations(page);
+  };
+
+  const exitBulkMode = () => {
+    setBulkDeleteMode(false);
+    setBulkSelected({});
+  };
+
+  const selectedCount = Object.keys(bulkSelected).length;
   const hasActiveFilter = search || statusFilter;
 
   return (
@@ -120,14 +165,47 @@ export default function QuotationList() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">ใบเสนอราคา</h1>
 
-        {/* ซ่อนปุ่มสร้างถ้าเป็น viewer */}
         {isAdmin && (
-          <button
-            onClick={() => navigate('/quotations/create')}
-            className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-5 py-2.5 rounded-xl shadow transition-colors"
-          >
-            <FiPlus size={18} />สร้างใบเสนอราคา
-          </button>
+          <div className="flex gap-3">
+            {bulkDeleteMode ? (
+              <>
+                <button
+                  onClick={toggleSelectAll}
+                  className="bg-white border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-semibold"
+                >
+                  {isAllSelected ? 'ยกเลิกทั้งหมด' : 'เลือกทั้งหมด'}
+                </button>
+                <button
+                  onClick={() => { if (selectedCount > 0) setConfirmBulk(true); }}
+                  disabled={selectedCount === 0}
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 flex items-center gap-2"
+                >
+                  <FiTrash2 size={15} />ลบที่เลือก ({selectedCount})
+                </button>
+                <button
+                  onClick={exitBulkMode}
+                  className="bg-white border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-semibold"
+                >
+                  ยกเลิก
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setBulkDeleteMode(true)}
+                  className="bg-white border border-red-300 hover:bg-red-50 text-red-500 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold"
+                >
+                  <FiTrash2 size={15} />เลือกลบ
+                </button>
+                <button
+                  onClick={() => navigate('/quotations/create')}
+                  className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-5 py-2.5 rounded-xl shadow transition-colors"
+                >
+                  <FiPlus size={18} />สร้างใบเสนอราคา
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -165,27 +243,113 @@ export default function QuotationList() {
         )}
       </div>
 
-      <QuotationTable
-        quotations={quotations}
-        onView={(id) => navigate(`/quotations/${id}/preview`)}
-        onEdit={(id) => navigate(`/quotations/edit/${id}`)}
-        onDelete={(id) => setDeleteTarget(quotations.find((q) => q._id === id))}
-        onChangeStatus={handleChangeStatus}
-        canEdit={isAdmin}
-        canDelete={isAdmin}
-      />
+      {/* ── ตาราง + Checkbox column เมื่ออยู่ใน bulk mode ── */}
+      {bulkDeleteMode ? (
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="w-12 px-4 py-3 text-center">
+                  <div
+                    onClick={toggleSelectAll}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer mx-auto transition-colors ${
+                      isAllSelected ? 'bg-red-500 border-red-500' : 'bg-white border-gray-300 hover:border-red-400'
+                    }`}
+                  >
+                    {isAllSelected && <FiCheck size={12} className="text-white" />}
+                  </div>
+                </th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">เลขที่ใบเสนอราคา</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">ลูกค้า</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">วันที่ออกใบเสนอราคา</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">ยอดรวม</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">สถานะ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {quotations.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center text-gray-400 py-12">ไม่พบรายการ</td>
+                </tr>
+              ) : (
+                quotations.map((q) => (
+                  <tr
+                    key={q._id}
+                    onClick={() => toggleBulkSelect(q._id)}
+                    className={`cursor-pointer transition-colors ${
+                      bulkSelected[q._id] ? 'bg-red-50' : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <td className="px-4 py-3 text-center">
+                      <div
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${
+                          bulkSelected[q._id] ? 'bg-red-500 border-red-500' : 'bg-white border-gray-300'
+                        }`}
+                      >
+                        {bulkSelected[q._id] && <FiCheck size={12} className="text-white" />}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{q.quotation_number}</td>
+                    <td className="px-4 py-3 text-gray-600">{q.customer_name}</td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {q.issue_date ? new Date(q.issue_date).toLocaleDateString('th-TH') : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800">
+                      {q.grand_total ? `฿${q.grand_total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                        q.status === 'ร่าง'    ? 'bg-gray-100 text-gray-600' :
+                        q.status === 'ส่งแล้ว' ? 'bg-blue-100 text-blue-600' :
+                        q.status === 'อนุมัติ' ? 'bg-green-100 text-green-600' :
+                        q.status === 'ปฏิเสธ'  ? 'bg-red-100 text-red-600' :
+                        q.status === 'หมดอายุ' ? 'bg-orange-100 text-orange-600' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {q.status || '-'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <QuotationTable
+          quotations={quotations}
+          onView={(id) => navigate(`/quotations/${id}/preview`)}
+          onEdit={(id) => navigate(`/quotations/edit/${id}`)}
+          onDelete={(id) => setDeleteTarget(quotations.find((q) => q._id === id))}
+          onChangeStatus={handleChangeStatus}
+          canEdit={isAdmin}
+          canDelete={isAdmin}
+        />
+      )}
 
       <QuotationPagination page={page} totalPages={totalPages} onChange={setPage} />
+
+      {/* ── Single delete modal ── */}
       <ConfirmDeleteModal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
         title="ลบใบเสนอราคา"
-        message={`คุณแน่ใจหรือไม่ว่าต้องการลบใบเสนอราคา ${
-          deleteTarget?.quotation_number || ''
-        } ?`}
+        message={`คุณแน่ใจหรือไม่ว่าต้องการลบใบเสนอราคา ${deleteTarget?.quotation_number || ''} ?`}
         variant="danger"
         confirmLabel="ลบ"
+        cancelLabel="ยกเลิก"
+      />
+
+      {/* ── Bulk delete modal ── */}
+      <ConfirmDeleteModal
+        open={confirmBulk}
+        onClose={() => setConfirmBulk(false)}
+        onConfirm={handleBulkDeleteConfirm}
+        title="ลบใบเสนอราคา"
+        message={`คุณแน่ใจหรือไม่ว่าต้องการลบใบเสนอราคาที่เลือกทั้งหมด ${selectedCount} รายการ?\nการดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+        variant="danger"
+        confirmLabel={`ลบ ${selectedCount} รายการ`}
         cancelLabel="ยกเลิก"
       />
     </div>

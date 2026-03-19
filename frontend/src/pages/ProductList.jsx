@@ -264,6 +264,84 @@ export default function ProductList() {
     URL.revokeObjectURL(url);
   };
 
+  // ── validation + import logic ──────────────────────────────────────────────
+  const processRows = async (rows) => {
+    try {
+      const validProducts = [];
+      const invalidProducts = [];
+
+      rows.forEach((row) => {
+        const product = {
+          name:        row['ชื่อสินค้า *'] || row['ชื่อสินค้า']  || row['name']        || '',
+          description: row['รายละเอียด *'] || row['รายละเอียด'] || row['description'] || '',
+          price:       parseFloat(row['ราคา *'] || row['ราคา'] || row['ราคาทุน'] || row['price'] || 0),
+          unit:        row['หน่วย'] || row['unit'] || 'ชิ้น',
+        };
+
+        const errors = [];
+        if (!product.name.trim())        errors.push('ไม่มีชื่อสินค้า');
+        if (!product.description.trim()) errors.push('ไม่มีรายละเอียด');
+        if (isNaN(product.price) || product.price <= 0) errors.push('ราคาต้องมากกว่า 0');
+
+        if (errors.length > 0) {
+          // เก็บแค่ชื่อ + errors ไม่เก็บ row number แล้ว
+          invalidProducts.push({ name: product.name || '(ไม่มีชื่อ)', errors });
+        } else {
+          validProducts.push(product);
+        }
+      });
+
+      const existingNames = products.map(p => p.name.trim().toLowerCase());
+      const seenInDoc = [];
+      const uniqueProducts    = [];
+      const duplicateProducts = [];
+
+      validProducts.forEach(p => {
+        const key = p.name.trim().toLowerCase();
+        const isDupInSystem = existingNames.includes(key);
+        const isDupInDoc    = seenInDoc.includes(key);
+
+        if (isDupInSystem || isDupInDoc) {
+          duplicateProducts.push(p);
+        } else {
+          uniqueProducts.push(p);
+          seenInDoc.push(key);
+        }
+      });
+
+      if (duplicateProducts.length > 0) {
+        const dupCount    = duplicateProducts.length;
+        const uniqueCount = uniqueProducts.length;
+
+        if (uniqueCount === 0) {
+          setAlertModal({
+            message: `พบสินค้าซ้ำ ${dupCount} รายการ\n${duplicateProducts.map(p => `• ${p.name}`).join('\n')}\n\nไม่มีสินค้าใหม่ที่จะนำเข้า`,
+            type: 'error',
+          });
+          return;
+        }
+
+        setConfirmPopup({
+          message: `พบรายการสินค้าซ้ำ ${dupCount} รายการ\n${duplicateProducts.map(p => `• ${p.name}`).join('\n')}\n\nจะนำเข้าเพียง ${uniqueCount} รายการที่ไม่ซ้ำ`,
+          confirmLabel: 'นำเข้า',
+          cancelLabel: 'ยกเลิก',
+          onConfirm: async () => {
+            setConfirmPopup(null);
+            await proceedImport(uniqueProducts, invalidProducts);
+          },
+        });
+        return;
+      }
+
+      await proceedImport(validProducts, invalidProducts);
+
+    } catch (err) {
+      console.error('Import error:', err);
+      setAlertModal({ message: 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล', type: 'error' });
+    }
+  };
+
+  // ── อ่านไฟล์ → ถาม confirm → ส่งต่อ processRows ──────────────────────────
   const handleImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -279,76 +357,24 @@ export default function ProductList() {
             return name && !name.startsWith('สีน้ำเงิน');
           });
 
-        const validProducts = [];
-        const invalidProducts = [];
-
-        rows.forEach((row, i) => {
-          const product = {
-            name:        row['ชื่อสินค้า *'] || row['ชื่อสินค้า']  || row['name']        || '',
-            description: row['รายละเอียด *'] || row['รายละเอียด'] || row['description'] || '',
-            price:       parseFloat(row['ราคา *'] || row['ราคา'] || row['ราคาทุน'] || row['price'] || 0),
-            unit:        row['หน่วย'] || row['unit'] || 'ชิ้น',
-          };
-
-          const errors = [];
-          if (!product.name.trim())        errors.push('ไม่มีชื่อสินค้า');
-          if (!product.description.trim()) errors.push('ไม่มีรายละเอียด');
-          if (isNaN(product.price) || product.price <= 0) errors.push('ราคาต้องมากกว่า 0');
-
-          if (errors.length > 0) {
-            invalidProducts.push({ row: i + 2, name: product.name || '(ว่าง)', errors });
-          } else {
-            validProducts.push(product);
-          }
-        });
-
-        const existingNames = products.map(p => p.name.trim().toLowerCase());
-        const seenInDoc = [];
-        const uniqueProducts    = [];
-        const duplicateProducts = [];
-
-        validProducts.forEach(p => {
-          const key = p.name.trim().toLowerCase();
-          const isDupInSystem = existingNames.includes(key);
-          const isDupInDoc    = seenInDoc.includes(key);
-
-          if (isDupInSystem || isDupInDoc) {
-            duplicateProducts.push(p);
-          } else {
-            uniqueProducts.push(p);
-            seenInDoc.push(key);
-          }
-        });
-
-        if (duplicateProducts.length > 0) {
-          const dupCount    = duplicateProducts.length;
-          const uniqueCount = uniqueProducts.length;
-
-          if (uniqueCount === 0) {
-            setAlertModal({
-              message: `พบสินค้าซ้ำ ${dupCount} รายการ\n${duplicateProducts.map(p => `• ${p.name}`).join('\n')}\n\nไม่มีสินค้าใหม่ที่จะนำเข้า`,
-              type: 'error',
-            });
-            return;
-          }
-
-          setConfirmPopup({
-            message: `พบรายการสินค้าซ้ำ ${dupCount} รายการ\n${duplicateProducts.map(p => `• ${p.name}`).join('\n')}\n\nจะนำเข้าเพียง ${uniqueCount} รายการที่ไม่ซ้ำ`,
-            confirmLabel: 'นำเข้า',
-            cancelLabel: 'ยกเลิก',
-            onConfirm: async () => {
-              setConfirmPopup(null);
-              await proceedImport(uniqueProducts, invalidProducts);
-            },
-          });
+        if (rows.length === 0) {
+          setAlertModal({ message: 'ไม่พบข้อมูลในไฟล์ที่เลือก', type: 'error' });
           return;
         }
 
-        await proceedImport(validProducts, invalidProducts);
+        setConfirmPopup({
+          message: `กำลังนำเข้าสินค้าทั้งหมด ${rows.length} รายการ จากไฟล์"${file.name}"\n\nยืนยันการนำเข้า?`,
+          confirmLabel: 'นำเข้า',
+          cancelLabel: 'ยกเลิก',
+          onConfirm: () => {
+            setConfirmPopup(null);
+            processRows(rows);
+          },
+        });
 
       } catch (err) {
         console.error('Import error:', err);
-        setAlertModal({ message: 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล', type: 'error' });
+        setAlertModal({ message: 'เกิดข้อผิดพลาดในการอ่านไฟล์', type: 'error' });
       }
     };
     reader.readAsBinaryString(file);
@@ -447,7 +473,6 @@ export default function ProductList() {
           </h1>
         </div>
 
-        {/* ซ่อนปุ่ม admin-only ถ้าเป็น viewer */}
         {!isSelectMode && isAdmin && (
           <div className="flex gap-3">
             {bulkDeleteMode ? (
@@ -522,23 +547,23 @@ export default function ProductList() {
 
       {/* Search */}
       <div className="flex gap-4 mb-6">
-  <div className="flex flex-1 min-w-[240px] max-w-md">
-    <div className="relative flex-1">
-      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="ค้นหาสินค้า..."
-        className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent bg-white"
-      />
-      {search && (
-        <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-          <FiX size={13} />
-        </button>
-      )}
-    </div>
-  </div>
-</div>
+        <div className="flex flex-1 min-w-[240px] max-w-md">
+          <div className="relative flex-1">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ค้นหาสินค้า..."
+              className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent bg-white"
+            />
+            {search && (
+              <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <FiX size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Product List */}
       {filteredProducts.length === 0 ? (
@@ -635,7 +660,7 @@ export default function ProductList() {
                     </div>
                   )}
 
-                  {/* Normal Mode: Action Buttons — ซ่อนปุ่ม edit ถ้า viewer */}
+                  {/* Normal Mode: Action Buttons */}
                   {!isSelectMode && !bulkDeleteMode && (
                     <div className="flex gap-2 mt-3">
                       <button
@@ -645,7 +670,6 @@ export default function ProductList() {
                         <FiEye size={16} /><span className="text-sm">ดู</span>
                       </button>
 
-                      {/* ซ่อนปุ่มแก้ไขถ้าเป็น viewer */}
                       {isAdmin && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setOpenModal(true); }}
@@ -663,20 +687,19 @@ export default function ProductList() {
         </div>
       )}
 
-      {/* Import Warning Modal */}
+      {/* Import Warning Modal — แสดงแค่ชื่อสินค้า + error ไม่แสดง row number */}
       {importWarning && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
             <h2 className="text-lg font-bold mb-1">พบข้อมูลที่มีปัญหา</h2>
             <p className="text-sm text-gray-500 mb-4">
-              พบ {importWarning.invalidProducts.length} row ที่ไม่สามารถนำเข้าได้
+              พบ {importWarning.invalidProducts.length} รายการที่ไม่สามารถนำเข้าได้
             </p>
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-48 overflow-y-auto mb-4">
               {importWarning.invalidProducts.map((p, i) => (
-                <div key={i} className="flex gap-2 text-sm py-1 border-b border-red-100 last:border-0">
-                  <span className="text-red-500 font-medium whitespace-nowrap">Row {p.row}</span>
-                  <span className="text-gray-600 truncate">{p.name}</span>
-                  <span className="text-red-400 ml-auto whitespace-nowrap">{p.errors.join(', ')}</span>
+                <div key={i} className="flex items-start justify-between gap-2 text-sm py-1.5 border-b border-red-100 last:border-0">
+                  <span className="text-gray-700 font-medium truncate">{p.name}</span>
+                  <span className="text-red-400 whitespace-nowrap shrink-0">{p.errors.join(', ')}</span>
                 </div>
               ))}
             </div>
