@@ -567,8 +567,18 @@ export default function ProductList() {
 
       {/* Product List */}
       {filteredProducts.length === 0 ? (
-        <div className="text-center text-gray-400 py-20">ไม่พบสินค้า</div>
-      ) : (
+  <div className="text-center text-gray-400 py-20 flex flex-col items-center gap-4">
+    <p>ไม่พบสินค้า</p>
+    {isSelectMode && (
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-2 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-xl transition-colors"
+      >
+        <FiArrowLeft size={16} />กลับไปหน้าสร้างใบเสนอราคา
+      </button>
+    )}
+  </div>
+) : (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredProducts.map((product) => {
             const isSelected = selectedProducts[product._id];
